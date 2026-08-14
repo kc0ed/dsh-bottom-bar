@@ -59,14 +59,18 @@ body = body.replace(/remote\.(\w+)\(([^)]*)\)/g, (m, name, args) => {
   return "host.call('" + wire + "'" + (argText ? ', ' + argText : '') + ')'
 })
 
-// 4) 符号：insertCss/ctx.slots/ctx.locale → styles/slots/locale
+// 4) 符号：insertCss → styles.insert（styles 是 closure 参数，可直接用）。
+// ⚠️ ctx.slots / ctx.locale **不能**改写为自由变量：动态客户端 runner 的
+// closure 参数表是固定的（React/console/styles/host/harness/traps/process/
+// Buffer），slots/locale 服务只能经 ctx.<名> 访问（inject 门控）——改写成
+// 自由变量会 ReferenceError: "xxx is not defined"（2026-08-14 实测）。
 body = body.replace(/insertCss\(/g, 'styles.insert(')
-body = body.replace(/ctx\.slots\./g, 'slots.')
-body = body.replace(/ctx\.locale\./g, 'locale.')
 
 // 5) 拼装（body 本身已含 apply(ctx) { ... }，只需包一层插件对象）
+// ⚠️ inject 必须含 'locale'/'slots'：动态客户端运行时它们不是自由内置符号，
+// 只能经 ctx.<名> 访问（inject 门控）；丢了会 ReferenceError（2026-08-14 实测）。
 const HEADER = `// ══════════════════════════════════════════════════════════════════
-// 动态插件形式（cost-2 的 client half · 与静态包 pkg-59 同步）
+// 动态插件形式（cost-2 的 client half · 与静态包同步）
 // ──
 // 本文件由 scripts/static-to-dynamic.cjs 从 lib/client.js 机械变换生成。
 // 动态形式 = 开发/正在运行的版本（harness.handle/host.call）；静态包 = 下次
@@ -74,6 +78,6 @@ const HEADER = `// ════════════════════�
 // 修订记录逐条对应。复刻来源与上游版本见 lib/client.js 头部同步块。
 // ══════════════════════════════════════════════════════════════════
 `
-const result = HEADER + "return {\n  inject: ['timer'],\n" + body + '  }\n'
+const result = HEADER + "return {\n  inject: ['timer', 'locale', 'slots'],\n" + body + '  }\n'
 fs.writeFileSync(output, result, 'utf8')
 console.log('written: ' + output + ' (' + result.length + ' chars)')

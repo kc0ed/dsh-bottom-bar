@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════
-// 动态插件形式（cost-2 的 client half · 与静态包 pkg-59 同步）
+// 动态插件形式（cost-2 的 client half · 与静态包同步）
 // ──
 // 本文件由 scripts/static-to-dynamic.cjs 从 lib/client.js 机械变换生成。
 // 动态形式 = 开发/正在运行的版本（harness.handle/host.call）；静态包 = 下次
@@ -7,7 +7,7 @@
 // 修订记录逐条对应。复刻来源与上游版本见 lib/client.js 头部同步块。
 // ══════════════════════════════════════════════════════════════════
 return {
-  inject: ['timer'],
+  inject: ['timer', 'locale', 'slots'],
 
                 
     
@@ -15,7 +15,7 @@ return {
     apply(ctx) {
       // 我们自己的文案命名空间（zh/en）
       try {
-        ctx.effect(() => locale.register('dsh-bottom-bar', {
+        ctx.effect(() => ctx.locale.register('dsh-bottom-bar', {
           zh: {
             input: '输入 {input} tok · 输出 {output} tok',
             cacheHit: '缓存命中 {tokens} tok',
@@ -28,8 +28,8 @@ return {
       } catch (err) {
         console.error('dsh-bottom-bar: locale ns already registered (stale run); continuing', err)
       }
-      const t = locale.bind('conversation')
-      const tb = locale.bind('dsh-bottom-bar')
+      const t = ctx.locale.bind('conversation')
+      const tb = ctx.locale.bind('dsh-bottom-bar')
 
       // ── 官方零件 1：StatsLine 样式（StatsLine.module.css 的 .root/.sep） ──
       // 修订 16：.dsh-stats-empty = 空数据占位（height:0 不可见，保持槽位在场）
@@ -177,7 +177,7 @@ return {
       }
 
       // ── 底栏（dock stats cell） ──
-      slots.inject('conversation.composer.dock', () => slots.register(
+      ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register(
         { name: 'conversation.composer.dock', id: 'stats', order: 0 },
         (props) => {
           // ⚠️ 全部 hooks 在组件顶部无条件调用（React #310 教训）
@@ -568,7 +568,7 @@ return {
       ))
 
       // ── 设置页（设置 → 底栏） ──
-      slots.inject('settings.section', () => slots.register(
+      ctx.slots.inject('settings.section', () => ctx.slots.register(
         { name: 'settings.section', id: 'cost-estimate', order: 25, label: '底栏' },
         () => {
           const [segments, setSegments] = React.useState(null)
@@ -646,9 +646,12 @@ return {
               }
             })
           }, [segments])
-          const saveOptions = (nextOptions) => {
+          const saveOptions = (nextOptions, segs) => {
             optionsRef.current = nextOptions
-            host.call('set-composition', { segments: segmentsRef.current, ...nextOptions })
+            // ⚠️ 修订 17：segments 必须显式传目标数组（segs ?? segmentsRef.current）——
+            // ref 只在渲染时刷新，事件处理器里 setSegments 后同步读 ref 是旧值，
+            // Host 会收到旧配置并原样返回，界面回弹。
+            host.call('set-composition', { segments: segs ?? segmentsRef.current, ...nextOptions })
               .then((result) => {
                 if (Array.isArray(result.segments)) {
                   setSegments(result.segments)
@@ -672,7 +675,7 @@ return {
           const apply = (next) => {
             setSegments(next)
             setCompositionState(next)
-            saveOptions(optionsRef.current)
+            saveOptions(optionsRef.current, next)
           }
           // 落点：按插入下标换位（to 为指针所在间隙；>from 时先删后插需 -1）
           const dropAt = (to) => {
@@ -684,6 +687,8 @@ return {
             const next = current.slice()
             const item = next.splice(from, 1)[0]
             next.splice(to > from ? to - 1 : to, 0, item)
+            // 修订 17：先同步 ref 再 setSegments —— finalize 里 saveOptions 读的是 ref
+            segmentsRef.current = next
             setSegments(next)
             setCompositionState(next)
           }

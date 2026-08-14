@@ -333,3 +333,18 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **`$ErrorActionPreference="Stop"` + 原生命令 `2>&1` = 定时炸弹**：stderr 行会被转成 ErrorRecord，直接终止脚本。dsh 首次初始化往 stderr 写 `initialized profile`（`process.stderr.write`），**全新机器必炸**（正式环境 profile 已存在所以测不出来）。原生命令别合并 stderr，直接透传控制台。
 - **全新机器自检顺序**：`dsh plugin add` 之后 `$DSH_HOME/profiles/node_modules` 回退层**还没生成**（启动时才"治愈"），此时 Host 导入必 MODULE_NOT_FOUND——先跑一次 `dsh --profile <name> --dump-config` 即可触发生成（在 loadProfile 阶段），再自检导入。
 - **编辑工具重写文件会丢 BOM**：`.ps1` 加过 BOM 后，用编辑工具改一次 BOM 就没了（PS 5.1 按 ANSI 读 → 中文注释解析失败，报错却是括号/引号错位，很迷惑）。改完脚本必须重新加 BOM，提交前用 `[Parser]::ParseFile` 验证。
+
+## 26. 静态固化包的"未完成"教训（2026-08-14 真实 boot 暴露）
+
+固化静态包宣称"完成"前必须**真实启动验证**（`dsh --profile web --port <空闲端口>`），import 成功 / dump-config 有层 ≠ 能 boot。这次三个硬伤全部只在真实 boot 时暴露：
+
+- **Host 半体 `service "bottomBar" has been registered`**：干净环境、单条目、真实 boot 必炸；但最小单 apply（bare Context）完全正常——机制未定位（疑似对象插件 + apply 内手动 `new Service` 与官方类插件模式的差异）。**官方带 Remote 服务的插件都是 Service 子类作 default export**（如 `dsh-goal`，`static inject` + 构造器 `super(ctx, key)` 一次注册），建议固化时改用该类插件模式。
+- **缺 `./typert` + `./remote` 产物**：官方 Remote 插件都导出这两个产物（`lib/typert.host.js` / `lib/typert.remote-client.js`，被 typert loader/registry 扫描后把 remote 定义同步给客户端）；缺了客户端永远无法解析 `remote.bottomBar` → 静态客户端无法激活。
+- **Host 逻辑不同步**：静态 `lib/index.js` 落后于动态版（价格表还是旧的 deepseek-chat/reasoner）。
+
+**动态客户端 runner 的服务访问规则**（`dsh-cordis-client-runner` 源码实测）：
+
+- closure 参数表**固定**：`React / console / styles / host / harness / traps(setTimeout 等) / process / Buffer`——**没有 slots/locale**！
+- 服务必须 `inject: [...]` 声明 + **`ctx.<名>` 访问**（guard 门控未声明属性）。
+- 生成器曾把 `ctx.slots.`/`ctx.locale.` 改写为自由变量 `slots.`/`locale.` → 必炸 `ReferenceError: locale is not defined`（修法：不改写，inject 补 `['timer','locale','slots']`）。
+- 附带坑：激活流程里重复发起 run 会撞 host runner 的 `starting` 表（"already starting"）——一个 run 在等客户端审批时，别再发新 run；页面 F5 可重置页面侧 runner，Host 侧卡死需 stop 或重建插件。

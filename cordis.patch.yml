@@ -1,7 +1,0 @@
-# dsh-bottom-bar bundle layer（官方组合包机制）
-# 声明于 package.json 的 `dsh.bundle`，由 `dsh plugin --profile <name> add` 自动
-# 挂载进该 profile 的 `dsh.profile.bundles` 层栈；`remove` 时自动移出。
-# 详见官方文档：docs/user/develop/basic/publish.zh.md（打包与安装插件）
-- insert:
-    - id: bottom-bar
-      name: 'dsh-bottom-bar'
