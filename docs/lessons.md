@@ -256,3 +256,45 @@ const TTL = 5000
 - 加载容错：首次无文件/JSON 损坏 → 空缓存继续跑
 
 参考："原版为什么流畅"——官方 StatsLine 零 RPC，全部数据来自本地 store 的同步订阅（useSession/useProjection）；凡是要 Host 侧数据的展示天然异步，缓存的终极形态是**把数据搬到客户端**（拉一份小价格表过去，客户端用节点+投影直接算），代价是模型归属等正确性细节。
+
+## 21. 动态插件固化 → 静态包（自动加载的正道）
+
+动态插件是**会话级**的：重启进程即失，每次都要手动 define/run——"不自动加载"是设计使然，改不了。要自动加载只能**固化**成静态包（cordis 组合行挂载，重启自动生效）：
+
+- **静态包结构**：`package.json` 声明 `dsh.client{inject, platform:"web"}` + `exports "./client"`；`lib/index.js` = Host（`TypertRemoteService extends Service` + `Remote()` 装饰器的手工等效 `remoteMarks()`，无 TS 装饰器语法也能标记 wire 名）；`lib/client.js` = `window.__ModuleLoader__.load({id, factory})` 浏览器模块
+- **静态 Client 与动态的差异**：无 `harness`/`host.call`/`styles` 符号——RPC 改 `ctx.remote.bottomBar.<method>`（inject 声明 `'remote.bottomBar'`），样式用幂等注入（`document.querySelector('style[data-plugin-css=...]')` 查不到才建，`tag.textContent` 覆盖）
+- **挂载**：profile 的 `cordis.patch.yml` 加 `- insert: [{id: <行id>, name: <包名>}]`；包解析用 junction 或（更稳，见 §22）profile package.json 依赖 + pnpm install
+- **动态 ↔ 静态同步**：client 半体可**机械变换**（`remote.X` → `host.call('x', ...)`、`insertCss` → `styles`、`ctx.slots/ctx.locale` → `slots/locale`，`__ModuleLoader__` 包装 → Cordis 插件对象），本仓库有 `scripts/static-to-dynamic.cjs` 保证零抄写误差；host 半体因形态差异大（类+装饰器 vs 闭包+harness.handle）需手工同步。两边头部"修订记录"逐条对应
+
+## 22. 静态挂载链的免重启验证（90% 可验）
+
+"重启才知道挂没挂上"太慢。静态包挂载链可以拆开逐级验证，除最后一步外都不需要重启：
+
+1. **组合树有行**：`node dsh web --dump-config`（用 `.bin\dsh.ps1` 那个真实入口）grep 到 `- id: bottom-bar`（注意：行在树里 ≠ 包能解析）
+2. **包能解析**：`createRequire('<dsh CLI 目录>/probe.js').resolve('dsh-bottom-bar')` 返回真实路径（junction/pnpm 链接是否生效）
+3. **Host 模块可导入**：`node --input-type=module -e "import('.../lib/index.js')"` 看导出形状（name/inject/apply）
+4. **配置路径对**：`settings.prepareDocument()` 同目录下配置文件存在、内容正确（node 读 JSON 核对，别目测）
+5. 剩下的 10%（Remote 运行时接线、客户端槽位注册）只能重启验证
+
+安装方式优先级：profile 是 pnpm workspace（`nodeLinker: hoisted`）→ 往 profile 的 `package.json` 加 `"<包名>": "file:./packages/<包名>"` + `pnpm install`（生成 profile `node_modules` 链接，稳定）；junction 放 npx 缓存目录里有被清缓存断链的风险，只当备胎。
+
+## 23. Windows 生成脚本的编码坑（写工具脚本必读）
+
+- PowerShell `>` 重定向写的是 **UTF-16**，node 读出来全是乱码 → 生成文件别用 PS 重定向
+- node 的 `process.stdout` 重定向到文件时按**系统代码页（GBK）**输出 → 中文全变乱码 → **生成脚本自己 `fs.writeFileSync(out, text, 'utf8')`**，别依赖 stdout 重定向
+- 目测不可靠：`Get-Content` 可能显示乱码而文件其实是好的（node 读 UTF-8 正确）→ 验证一律用 `node -e "readFileSync(...)+includes('关键字')"` 做字节级判断
+
+## 24. gh 多账号发布的凭证坑
+
+机器上登录了多个 gh 账号时，`gh auth switch --user X` 只切 gh 的激活账号；**git 的凭证助手（Git Credential Manager）缓存的是旧账号的 token**，推送仍会 403 "denied to <旧账号>"。
+
+修法：
+
+```powershell
+gh auth setup-git        # 为 github.com 配置 gh 凭证助手（空 helper 条目中和 GCM）
+gh auth switch --user <仓库所属账号>
+git push                 # 走 gh 助手 → 当前激活账号的 token
+gh auth switch --user <原默认账号>   # 用完切回
+```
+
+`gh auth setup-git` 会在 `~/.gitconfig` 写 `credential.https://github.com.helper`（第一行空字符串禁用继承的 GCM，第二行指向 `gh auth git-credential`），是官方支持的多账号流程。
