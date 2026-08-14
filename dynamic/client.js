@@ -571,7 +571,9 @@ return {
       ctx.slots.inject('settings.section', () => ctx.slots.register(
         { name: 'settings.section', id: 'cost-estimate', order: 25, label: '底栏' },
         () => {
-          const [segments, setSegments] = React.useState(null)
+          // 修订 18：首屏直接用模块级 compositionValue 缓存（底栏轮询已加载），
+          // 避免每次都等 get-composition RPC 回来才渲染；RPC 回来后静默刷新。
+          const [segments, setSegments] = React.useState(Array.isArray(compositionValue) ? compositionValue : null)
           const [mode, setMode] = React.useState('separate')
           const [tooltipAlways, setTooltipAlways] = React.useState(false)
           const [precision, setPrecision] = React.useState('compact')

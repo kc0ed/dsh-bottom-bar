@@ -30,8 +30,15 @@
 //    cost-estimate.estimates.json（{version, updatedAt, entries:{sessionId:
 //    {foldedAt, result}}}），页面刷新/切会话/插件重启后直接读盘秒出，不再
 //    全量重算。
+// 6) 修订 18（大会话性能）：内存 TTL 30s；磁盘 TTL 30min + stale-while-
+//    revalidate（命中磁盘秒回旧值，后台异步重折）；折叠分块让出事件循环
+//    （每 4000 事件 ctx.timeout(0)）——实测本会话 11.5MB / ~9.8 万事件，
+//    全量折叠同步执行会堵死服务器事件循环，设置页等其他 RPC 排队十几秒。
+//    ⚠️ Host 半体必须声明 inject: ['timer']——ctx.timeout 是属性访问，受
+//    注入门控（未声明会被 Host guard 拒绝：'service "timer" is not injected'）。
 // ══════════════════════════════════════════════════════════════════
 return {
+  inject: ['timer'],
   async apply(ctx) {
     const DEFAULT_PRICES = {
       // 官方 DeepSeek V4（2026-08-14 官方价格页，CNY / 1M tokens）：
@@ -156,11 +163,13 @@ return {
       return { totals, priced, unpriced, hasUsage: anyTokens, lastSample }
     }
 
-    // ── 预估缓存（修订 15）：内存 5s + 磁盘 5min（写盘节流 30s） ──
+    // ── 预估缓存（修订 15 + 修订 18）：内存 30s + 磁盘 30min（写盘节流 30s） ──
     // 磁盘文件：settings 文档同目录 cost-estimate.estimates.json
-    const ESTIMATE_MEM_TTL = 5000
-    const ESTIMATE_DISK_TTL = 300000
+    const ESTIMATE_MEM_TTL = 30000
+    const ESTIMATE_DISK_TTL = 1800000
+    const FOLD_CHUNK = 4000
     const estimateMem = new Map()
+    const folding = new Map()
     let diskEntries = null
     let diskDirty = false
     let lastDiskWrite = 0
@@ -185,19 +194,68 @@ return {
         // 首次无文件/损坏：保持空缓存
       }
     }
-    const estimateGet = async (sessionId, now) => {
-      // 1) 内存缓存（流式期间 1.5s 轮询主要走这里）
+    // 折叠（修订 18）：全量 readSession + 分块让出事件循环（大会话不堵其他 RPC）
+    const refold = async (sessionId) => {
+      if (folding.has(sessionId)) return folding.get(sessionId)
+      const promise = (async () => {
+        try {
+          const query = ctx.get('sessionQuery')
+          if (query === undefined) return null
+          const t0 = Date.now()
+          const snapshot = await query.readSession(sessionId)
+          const t1 = Date.now()
+          if (snapshot === undefined || snapshot.events === undefined) return null
+          const state = fresh()
+          const events = snapshot.events
+          for (let i = 0; i < events.length; i++) {
+            foldEvent(state, events[i])
+            if (i % FOLD_CHUNK === FOLD_CHUNK - 1) {
+              await new Promise((resolve) => ctx.timeout(resolve, 0))
+            }
+          }
+          const result = estimateOf(state)
+          const t2 = Date.now()
+          console.error('[dsh-bottom-bar] refold ' + String(sessionId).slice(0, 8) + ': readSession=' + (t1 - t0) + 'ms fold=' + (t2 - t1) + 'ms events=' + events.length)
+          await estimateSet(sessionId, result)
+          return result
+        } catch (err) {
+          console.error('cost-estimate failed:', err)
+          return null
+        } finally {
+          folding.delete(sessionId)
+        }
+      })()
+      folding.set(sessionId, promise)
+      return promise
+    }
+    const kickRefold = (sessionId) => {
+      refold(sessionId).catch(() => {})
+    }
+
+    harness.handle('estimate-cost', async (args) => {
+      const sessionId = args === null || args === undefined ? undefined : args.sessionId
+      if (typeof sessionId !== 'string') {
+        return { totals: {}, priced: [], unpriced: [], hasUsage: false, lastSample: null }
+      }
+      const now = Date.now()
+      // 1) 内存缓存（流式期间主要命中；TTL 30s）
       const mem = estimateMem.get(sessionId)
       if (mem !== undefined && now - mem.foldedAt <= ESTIMATE_MEM_TTL) return mem.result
-      // 2) 磁盘缓存（页面刷新/切会话/插件重启后秒出）
+      // 2) 磁盘缓存（30min TTL）：秒回 + 后台异步重折（stale-while-revalidate）
       if (diskEntries === null) await loadDiskCache()
       const disk = diskEntries[sessionId]
       if (disk !== undefined && disk !== null && now - disk.foldedAt <= ESTIMATE_DISK_TTL) {
         estimateMem.set(sessionId, disk)
+        kickRefold(sessionId)
         return disk.result
       }
-      return null
-    }
+      // 3) 无缓存：同步重折（分块让出，不堵事件循环）
+      const result = await refold(sessionId)
+      if (result === null) {
+        return { totals: {}, priced: [], unpriced: [], hasUsage: false, lastSample: null }
+      }
+      return result
+    })
     const maybeWriteDisk = async (now) => {
       if (!diskDirty || estimateFile === null) return
       if (now - lastDiskWrite < 30000) return
@@ -240,34 +298,7 @@ return {
       }
       await maybeWriteDisk(now)
     }
-
-    harness.handle('estimate-cost', async (args) => {
-      const sessionId = args === null || args === undefined ? undefined : args.sessionId
-      if (typeof sessionId !== 'string') {
-        return { totals: {}, priced: [], unpriced: [], hasUsage: false, lastSample: null }
-      }
-      const now = Date.now()
-      const cached = await estimateGet(sessionId, now)
-      if (cached !== null) return cached
-      const query = ctx.get('sessionQuery')
-      if (query === undefined) {
-        return { totals: {}, priced: [], unpriced: [], hasUsage: false, lastSample: null }
-      }
-      try {
-        const snapshot = await query.readSession(sessionId)
-        if (snapshot === undefined || snapshot.events === undefined) {
-          return { totals: {}, priced: [], unpriced: [], hasUsage: false, lastSample: null }
-        }
-        const state = fresh()
-        for (const event of snapshot.events) foldEvent(state, event)
-        const result = estimateOf(state)
-        estimateSet(sessionId, result)
-        return result
-      } catch (err) {
-        console.error('cost-estimate failed:', err)
-        return { totals: {}, priced: [], unpriced: [], hasUsage: false, lastSample: null }
-      }
-    })
+    // 折叠（修订 18）：全量 readSession + 分块让出事件循环（大会话不堵其他 RPC）
 
     // ── 组装配置 + 价格：持久化到 settings 文档同目录的 JSON（version 4） ──
     const SEGMENT_IDS = ['counts', 'llm', 'toolCall', 'ttft', 'throughput', 'cacheHit', 'tokens', 'cost']
