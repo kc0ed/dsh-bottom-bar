@@ -1,14 +1,20 @@
 // ══════════════════════════════════════════════════════════════════
 // 同步说明（改本文件前必读）
 // ──
-// 1) 价格：按 model id 匹配（USD/CNY，每 1M tokens）。DEFAULT_PRICES 只
-//    内置 DeepSeek 系列（2026-08-14 按用户要求精简；deepseek-v4-flash 定价
-//    由用户提供：输入 ¥1 / 缓存 ¥0.02 / 输出 ¥2）。其他模型在设置页按需
-//    添加（新增填输入价，输出/缓存读/缓存写按 5×/0.1×/1.25× 自动派生）。
-//    用户覆盖存于配置文件 prices 字段（version 4），estimate-cost 实时使用
-//    合并结果。缓存桶可缺省（undefined=该模型无此桶，计费回退输入价）；
-//    ⚠️ RPC 线路上用 null 编码缺省桶（undefined 不是合法 JSON，会被线上
-//    协议拒绝：'must be lossless JSON data'）。
+// 1) 价格：按 model id 匹配（USD/CNY，每 1M tokens）。DEFAULT_PRICES 内置
+//    官方 DeepSeek V4 系列（2026-08-14 官方价格页）：
+//    · deepseek-v4-flash：输入（缓存未命中）1 / 缓存命中 0.02 / 输出 2（元）
+//    · deepseek-v4-pro：输入（缓存未命中）3 / 缓存命中 0.025 / 输出 6（元）
+//    · deepseek-chat / deepseek-reasoner 已随官方下架移除（2026-08-14）。
+//    · 缓存写无官方价，flash/pro 均按缓存命中同价内置（设置页可改/清空=
+//      无此桶按输入价计费）。
+//    ⚠️ 官方 2026-08-17 00:00 起改为峰谷定价（空闲时段为高峰一半），
+//    暂未实现，后续再看。
+//    其他模型在设置页按需添加（新增填输入价，输出/缓存读/缓存写按
+//    5×/0.1×/1.25× 自动派生）。用户覆盖存于配置文件 prices 字段（version
+//    4），estimate-cost 实时使用合并结果。缓存桶可缺省（undefined=该模型
+//    无此桶，计费回退输入价）；⚠️ RPC 线路上用 null 编码缺省桶（undefined
+//    不是合法 JSON，会被线上协议拒绝：'must be lossless JSON data'）。
 // 2) 组装配置（2026-08-14）：{mode, tooltip, precision, segments, prices}。
 //    settings 服务注册需要 zod schema（动态插件无 zod），故配置以 JSON
 //    持久化到 settings 文档同目录的 cost-estimate.composition.json。
@@ -28,11 +34,12 @@
 return {
   async apply(ctx) {
     const DEFAULT_PRICES = {
-      // 本部署代理模型：用户提供的定价（CNY / 1M tokens，2026-08-14 确认）
+      // 官方 DeepSeek V4（2026-08-14 官方价格页，CNY / 1M tokens）：
+      // 输入（缓存未命中）1 / 缓存命中 0.02 / 输出 2
       'deepseek-v4-flash': { currency: 'CNY', in: 1, cacheRead: 0.02, cacheWrite: 0.02, out: 2 },
-      // DeepSeek 官方 API（api-docs.deepseek.com，2025-09 起）
-      'deepseek-chat': { in: 0.27, cacheRead: 0.07, out: 1.10 },
-      'deepseek-reasoner': { in: 0.55, cacheRead: 0.14, out: 2.19 },
+      // 输入（缓存未命中）3 / 缓存命中 0.025 / 输出 6；缓存写无官方价，与缓存命中同价
+      'deepseek-v4-pro': { currency: 'CNY', in: 3, cacheRead: 0.025, cacheWrite: 0.025, out: 6 },
+      // deepseek-chat / deepseek-reasoner 已下架（2026-08-14），不再内置
     }
 
     const fresh = () => ({ models: new Map(), lastModel: null, lastUsage: null })

@@ -72,8 +72,13 @@ powershell -ExecutionPolicy Bypass -File scripts/install-profile.ps1
 
 ## 内置价格说明
 
-- 内置 DeepSeek 官方 API 价格（`deepseek-chat` / `deepseek-reasoner`，api-docs.deepseek.com）
-- `deepseek-v4-flash` 是作者部署环境的**代理模型示例定价**（CNY，输入 ¥1 / 缓存 ¥0.02 / 输出 ¥2），**不是 DeepSeek 官方价格**——不需要就在设置页删除，需要就按自己的价格改
+- 内置官方 DeepSeek V4 价格（2026-08-14 官方价格页，CNY / 1M tokens）：
+  - `deepseek-v4-flash`：输入（缓存未命中）1 / 缓存命中 0.02 / 输出 2
+  - `deepseek-v4-pro`：输入（缓存未命中）3 / 缓存命中 0.025 / 输出 6
+- `deepseek-chat` / `deepseek-reasoner` 已随官方下架移除（2026-08-14）
+- 缓存写无官方价，flash / pro 均按缓存命中同价内置（设置页可改；清空 = 无此桶，按输入价计费）
+- ⚠️ 官方计划 2026-08-17 00:00 起改为峰谷定价（空闲时段为高峰一半），暂未实现
+- 其他模型在设置页按需添加（新增只填输入价，输出 / 缓存读 / 缓存写按 5× / 0.1× / 1.25× 自动派生）
 
 ## 架构
 
