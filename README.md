@@ -91,3 +91,7 @@ powershell -ExecutionPolicy Bypass -File scripts/install-profile.ps1
 ## License
 
 MIT © kc0ed。复刻的官方 UI 零件版权归原作者（DeepSeek）所有，归属与上游版本见代码头同步块。
+
+---
+
+本项目由 DeepSeek V4 Flash 在 DeepSeek Harness 中辅助开发完成。
