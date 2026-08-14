@@ -23,6 +23,16 @@ DSH 底栏统计行插件（可组装 + 预估费用）：接管 `conversation.c
 
 前提：DSH 的 web profile（`dsh web`）。
 
+**一键安装**（推荐，幂等）：把仓库放到 `<profile>/packages/dsh-bottom-bar`，然后：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-profile.ps1
+```
+
+脚本自动完成：① 把 `dsh-bottom-bar` 加入 profile 的 `package.json` 依赖（`file:./packages/dsh-bottom-bar`）→ ② `pnpm install` 生成 profile `node_modules` 链接 → ③ 确保 `cordis.patch.yml` 里有 `bottom-bar` 行。然后**重启 `dsh web`** 即自动加载。
+
+**手动安装**：
+
 1. 把本包放进 profile 的 packages 目录（或任意目录）：
 
    ```
@@ -31,13 +41,8 @@ DSH 底栏统计行插件（可组装 + 预估费用）：接管 `conversation.c
 
 2. 让 profile 的 `node_modules` 能解析到它（二选一）：
 
-   - Windows junction：
-
-     ```
-     mklink /J "<profile>\node_modules\dsh-bottom-bar" "<packages>\dsh-bottom-bar"
-     ```
-
-   - 或 `npm link`
+   - pnpm（推荐，官方 workspace 方式）：在 profile 的 `package.json` 加 `"dsh-bottom-bar": "file:./packages/dsh-bottom-bar"`，然后 `pnpm install`
+   - Windows junction：`mklink /J "<profile>\node_modules\dsh-bottom-bar" "<packages>\dsh-bottom-bar"`
 
 3. 在 profile 的 `cordis.patch.yml` 追加一行（挂到根配置的列表行）：
 
