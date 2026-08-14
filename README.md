@@ -2,6 +2,13 @@
 
 DSH 底栏统计行插件（可组装 + 预估费用）：接管 `conversation.composer.dock` 的 stats cell，把官方统计行换成可配置的组装行，并在末尾追加**预估费用**标注（按模型 id 匹配价格表，支持 USD/CNY 多币种）。
 
+## 仓库结构
+
+- `lib/` — **静态固化包**（可安装：junction + cordis.patch.yml，见下方安装）
+- `dynamic/` — **当前正在运行的动态插件源码**（开发版，唯一实测过；与静态包逻辑同步，见 [dynamic/README.md](dynamic/README.md)）
+- `scripts/static-to-dynamic.cjs` — 从静态 `lib/client.js` 生成动态 `dynamic/client.js` 的同步工具
+- `docs/lessons.md` — 开发教训 20 条（槽位回退、RPC 取消风暴、持久化缓存等）
+
 ## 功能
 
 - **8 个统计段**可开关、可拖拽排序（拖动时显示放置指示线，落点 FLIP 动画）：轮/步、LLM 时长、工具调用时长、首 token 平均、吞吐 tok/s、缓存命中、输入/输出 token、**预估费用**
