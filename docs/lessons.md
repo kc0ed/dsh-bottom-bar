@@ -276,7 +276,18 @@ const TTL = 5000
 4. **配置路径对**：`settings.prepareDocument()` 同目录下配置文件存在、内容正确（node 读 JSON 核对，别目测）
 5. 剩下的 10%（Remote 运行时接线、客户端槽位注册）只能重启验证
 
-安装方式优先级：profile 是 pnpm workspace（`nodeLinker: hoisted`）→ 往 profile 的 `package.json` 加 `"<包名>": "file:./packages/<包名>"` + `pnpm install`（生成 profile `node_modules` 链接，稳定）；junction 放 npx 缓存目录里有被清缓存断链的风险，只当备胎。
+安装方式优先级：官方组合包机制（见 §25）→ `dsh plugin --profile <name> add ./packages/<包名>`（裸目录 spec = link: 协议，junction 实时同步，自动进层栈）。
+
+> ⚠️ **树内约束（朋友踩过的坑）**：包的真实位置**必须在 profile 树内**。Host 半体
+> 运行时 `import '@deepseek-ai/*'`，Node 从包的**真实路径**向上找 node_modules，
+> 而 @deepseek-ai 依赖在 profile 树内经 parent-walk 可达（`$DSH_HOME/profiles/node_modules`
+> 是安装回退链接层，含全部 @deepseek-ai 包）。用 `link:<树外路径>` 或 junction 指向
+> 树外仓库 → 真实路径在树外 → 启动时 `MODULE_NOT_FOUND: Cannot find module
+> '@deepseek-ai/dsh-typert-protocol'` → **dsh web 打不开**。验证方法：
+> `createRequire(<包真实位置>/probe.js)` 能否 resolve 到 @deepseek-ai（树外 FAIL /
+> 树内 OK）。正确姿势：clone/拷贝到 `<profile>/packages/` 下（真实文件），
+> `add ./packages/...`（junction）；**tarball 安装不受树内约束**（`pnpm pack` →
+> `dsh plugin add ./xxx.tgz`，依赖随包装进 profile 的 node_modules，可放任意位置）。
 
 ## 23. Windows 生成脚本的编码坑（写工具脚本必读）
 
@@ -298,3 +309,27 @@ gh auth switch --user <原默认账号>   # 用完切回
 ```
 
 `gh auth setup-git` 会在 `~/.gitconfig` 写 `credential.https://github.com.helper`（第一行空字符串禁用继承的 GCM，第二行指向 `gh auth git-credential`），是官方支持的多账号流程。
+
+## 25. 官方组合包机制（bundle）：装插件别再手改 patch 了
+
+DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，本机 CLI `@deepseek-ai/dsh@0.1.0-rc.6` 实测）：
+
+- **组合包 = 带配置层的 npm 包**：`package.json` 声明 `"dsh": { "bundle": { "patch": "./cordis.patch.yml" } }`，patch 里 `- insert: [{id, name}]` 按**包名**引用插件行。
+- **profile 层栈**：manifest 的 `dsh.profile.bundles` 列表。`dsh plugin --profile <name> <pnpm 参数>` 转发 pnpm，**每次成功后自动 reconcile**：声明了 `dsh.bundle` 的依赖自动进栈（依赖顺序追加）、移除依赖自动出栈、无 bundle 声明的依赖打印一次警告（普通库，不进层）。
+- **`dsh plugin --profile web remove dsh-bottom-bar` = 卸载**：依赖与层栈同时清理，无需手改任何文件。
+- **安装 spec 用裸目录（link:）而不是 `file:`**：`add ./packages/foo` 在 node_modules 建 **junction**（git pull 实时同步）；`file:` 是**拷贝式**，内容变更时 pnpm 报 "Already up to date" 不更新 → 改代码永远不生效（实测踩坑）。相对 spec 按**调用目录**锚定（CLI 的 `anchorPathSpec`），所以在 profile 目录里执行 `add ./packages/...` 指向树内拷贝。
+- **reconcile 的解析顺序**：先 INSTALL_ANCHOR（dsh 安装目录的 node_modules）再 profile 目录 —— 早期实验在 CLI 安装目录留下的陈旧 junction 会让 `exportsPatch` 读到旧 manifest（判定不是 bundle）→ 调试半天，清掉陈旧链接即恢复。
+- **`--dump-config` 只印 bundle 层 + profile/home/overlay 层**；`--dump-default-config` 只印 bundle 层。dump 不 boot 插件（import 不执行），适合装后快速验证 `# == <包名>` 层在不在。
+- **tarball 路径**：`pnpm pack`（受 `files` 字段控制）→ `dsh plugin add ./xxx.tgz` → 包 + 依赖一起装进 profile 的 node_modules，**与位置无关**（树外也行），适合 GitHub Release 分发。
+
+**本次实测新坑**：
+
+- **cordis.patch.yml 只剩注释 = 启动挂**：patch 文件必须是顶层 YAML 数组；注释-only 解析为 null → `must be a top-level YAML array` → profile 起不来。删除最后一个 insert 块时要在文件里留一个 `[]`。
+- **Windows PowerShell 5.1 按 ANSI 读 .ps1**：write 工具写出的无 BOM UTF-8 脚本带中文注释时直接解析失败（报奇怪的括号/引号错位）→ **分发脚本必须带 UTF-8 BOM**（.ps1 不怕 BOM，JSON/YAML 才怕）。验证：`[System.Management.Automation.Language.Parser]::ParseFile` 无错误。
+- **声明依赖 ≠ 摆脱树内约束**：把 `@deepseek-ai/cordis` / `@deepseek-ai/dsh-typert-protocol` 声明进 dependencies 后，pnpm 确实把它们装进 profile 的 node_modules，但 Node 仍按包**真实路径**向上解析 → 树外目录型安装依旧 MODULE_NOT_FOUND。声明依赖的价值在 tarball / npm 分发（依赖随包落地同一 node_modules 布局）。
+
+**全新机器端到端实测（临时 DSH_HOME 模拟）又挖出 3 个坑**：
+
+- **`$ErrorActionPreference="Stop"` + 原生命令 `2>&1` = 定时炸弹**：stderr 行会被转成 ErrorRecord，直接终止脚本。dsh 首次初始化往 stderr 写 `initialized profile`（`process.stderr.write`），**全新机器必炸**（正式环境 profile 已存在所以测不出来）。原生命令别合并 stderr，直接透传控制台。
+- **全新机器自检顺序**：`dsh plugin add` 之后 `$DSH_HOME/profiles/node_modules` 回退层**还没生成**（启动时才"治愈"），此时 Host 导入必 MODULE_NOT_FOUND——先跑一次 `dsh --profile <name> --dump-config` 即可触发生成（在 loadProfile 阶段），再自检导入。
+- **编辑工具重写文件会丢 BOM**：`.ps1` 加过 BOM 后，用编辑工具改一次 BOM 就没了（PS 5.1 按 ANSI 读 → 中文注释解析失败，报错却是括号/引号错位，很迷惑）。改完脚本必须重新加 BOM，提交前用 `[Parser]::ParseFile` 验证。

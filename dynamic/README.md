@@ -1,6 +1,6 @@
 # 动态插件形式（cost-2 · 当前正在运行的开发版）
 
-这是 harness 会话里正在运行的动态插件 `cost-2`（最新包 pkg-59）的源码：
+这是 harness 会话里正在运行的动态插件 `cost-2`（最新包 pkg-60）的源码：
 
 - `host.js`：Host 半体——`harness.handle` 注册 `estimate-cost` / `get-composition` / `set-composition` / `reset-composition` / `get-prices` / `set-price` / `remove-price` / `reset-prices`
 - `client.js`：Client 半体——`slots` 注册底栏（`conversation.composer.dock` id `stats`）与设置页（`settings.section`），`host.call` 调 Host
@@ -11,7 +11,7 @@
 
 | | 动态插件（本目录） | 静态包（lib/） |
 |---|---|---|
-| 形态 | Cordis 动态插件（会话内 define/run） | npm 风格静态包（`cordis.patch.yml` 挂载） |
+| 形态 | Cordis 动态插件（会话内 define/run） | npm 风格静态包（`dsh.bundle` → `cordis.patch.yml`，`dsh plugin add` 自动挂载进层栈） |
 | RPC | `harness.handle` / `host.call` | `ctx.remote.bottomBar`（TypertRemoteService） |
 | 状态 | **开发版 / 当前正在运行（唯一实测过）** | 固化版，下次启动生效 |
 
