@@ -10,24 +10,7 @@ return {
   inject: ['timer', 'locale', 'slots'],
 
                 
-    // ── 幂等样式注入（静态插件无 styles 符号；追加 + Set 去重，避免多次
-    // 调用互相覆盖或重挂重复追加。⚠️ seen 用函数属性而非顶层 const——
-    // 生成器会把 factory 顶层声明带进动态插件的 return 对象） ──
-    function styles.insert(css) {
-      if (typeof document === 'undefined') return
-      if (insertCss.seen === undefined) insertCss.seen = new Set()
-      if (insertCss.seen.has(css)) return
-      insertCss.seen.add(css)
-      const tagId = 'dsh-bottom-bar'
-      let tag = document.querySelector('style[data-plugin-css="' + tagId + '"]')
-      if (tag === null) {
-        tag = document.createElement('style')
-        tag.dataset.pluginCss = tagId
-        document.head.appendChild(tag)
-      }
-      tag.textContent += css
-    }
-
+    
     
     async apply(ctx) {
       // 修订 36（静态包）：Remote contribution——host 侧 SRC 发现按方法名路由，
