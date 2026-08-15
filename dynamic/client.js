@@ -63,7 +63,7 @@ return {
         const t = ctx.locale.bind('conversation')
         const tb = ctx.locale.bind('dsh-bottom-bar')
         styles.insert('.dsh-stats-root{text-align:center;max-width:var(--dsh-chat-content-width);box-sizing:border-box;width:100%;padding:4px calc(var(--dsh-composer-side-clearance) + 16px) 0px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;margin:0 auto;font-size:12px;line-height:20px;display:block;overflow:hidden}.dsh-stats-sep{color:var(--dsw-alias-separator-primary);margin:0 10px}.dsh-stats-empty{height:0;padding:0;overflow:hidden;line-height:0}')
-        styles.insert('.dsh-tip{position:fixed;z-index:100;width:max-content;max-width:50vw;padding:3px 7px;border-radius:8px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px;white-space:pre-line;overflow-wrap:break-word;pointer-events:none;animation:dsh-tip-in .15s var(--ds-ease-in-out)}.dsh-tip[data-side=top]{transform:translate(-50%,-100%)}.dsh-tip[data-side=bottom]{transform:translate(-50%)}@keyframes dsh-tip-in{0%{opacity:0}}@media(prefers-reduced-motion:reduce){.dsh-tip{animation:none}}')
+        styles.insert('.dsh-tip{position:fixed;z-index:100;width:max-content;max-width:50vw;padding:3px 7px;border-radius:8px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px;white-space:pre-line;overflow-wrap:break-word;pointer-events:none;animation:dsh-tip-in .1s var(--ds-ease-in-out)}.dsh-tip[data-side=top]{transform:translate(-50%,-100%)}.dsh-tip[data-side=bottom]{transform:translate(-50%)}@keyframes dsh-tip-in{0%{opacity:0}}@media(prefers-reduced-motion:reduce){.dsh-tip{animation:none}}')
         styles.insert('.dsh-comp-page{display:flex;flex-direction:column;gap:10px;padding:6px 0;font-size:13px;line-height:20px;color' +
             ':var(--dsw-alias-label-secondary)}.dsh-comp-desc{color:var(--dsw-alias-label-tertiary);font-size:12px;line-hei' +
             'ght:18px;margin:0}.dsh-comp-loading{display:flex;flex-direction:column;gap:8px;padding:6px 0}.dsh-comp-loading' +
@@ -106,7 +106,7 @@ return {
             'sw-alias-label-tertiary)}.dsh-price-head{display:flex;align-items:center;gap:6px;font-size:12px;line-height:18' +
             'px;color:var(--dsw-alias-label-tertiary)}')
         styles.insert('.dsh-comp-select{appearance:auto;-webkit-appearance:auto;font-size:12px;padding:2px 4px;border-radius:4px;background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}')
-        styles.insert('.dsh-seg{cursor:pointer;border-radius:3px;padding:0 2px;margin:0 -2px;transition:background .12s,color .12s}.dsh-seg:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.dsh-detail{position:fixed;z-index:101;min-width:190px;max-width:min(430px,82vw);max-height:45vh;overflow:auto;padding:8px 12px;border-radius:10px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-primary);font-size:12px;line-height:18px;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);animation:dsh-tip-in .15s var(--ds-ease-in-out);scrollbar-width:thin;scrollbar-color:var(--dsw-alias-label-tertiary) transparent}.dsh-detail::-webkit-scrollbar{width:5px;height:5px}.dsh-detail::-webkit-scrollbar-thumb{background:var(--dsw-alias-label-tertiary);border-radius:3px}.dsh-detail::-webkit-scrollbar-track{background:transparent}.dsh-detail[data-side=top]{transform:translate(-50%,-100%)}.dsh-detail[data-side=bottom]{transform:translate(-50%)}.dsh-detail-title{font-weight:600;margin-bottom:4px}.dsh-detail-row{display:flex;justify-content:space-between;gap:18px}.dsh-detail-row+.dsh-detail-row{margin-top:2px}.dsh-detail-sep{border-top:1px solid var(--dsw-alias-border-l2);margin:6px 0}.dsh-detail-total{font-weight:600}.dsh-detail-model{font-weight:600;margin-top:6px}.dsh-detail-empty{opacity:.75;margin-top:2px}')
+        styles.insert('.dsh-seg{cursor:pointer;border-radius:3px;padding:0 2px;margin:0 -2px;transition:background .12s,color .12s}.dsh-seg:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.dsh-detail{position:fixed;z-index:101;min-width:190px;max-width:min(430px,82vw);max-height:45vh;overflow:auto;padding:8px 12px;border-radius:10px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-primary);font-size:12px;line-height:18px;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);animation:dsh-tip-in .1s var(--ds-ease-in-out);scrollbar-width:thin;scrollbar-color:var(--dsw-alias-label-tertiary) transparent}.dsh-detail::-webkit-scrollbar{width:5px;height:5px}.dsh-detail::-webkit-scrollbar-thumb{background:var(--dsw-alias-label-tertiary);border-radius:3px}.dsh-detail::-webkit-scrollbar-track{background:transparent}.dsh-detail[data-side=top]{transform:translate(-50%,-100%)}.dsh-detail[data-side=bottom]{transform:translate(-50%)}.dsh-detail-title{font-weight:600;margin-bottom:4px}.dsh-detail-row{display:flex;justify-content:space-between;gap:18px}.dsh-detail-row+.dsh-detail-row{margin-top:2px}.dsh-detail-sep{border-top:1px solid var(--dsw-alias-border-l2);margin:6px 0}.dsh-detail-total{font-weight:600}.dsh-detail-model{font-weight:600;margin-top:6px}.dsh-detail-empty{opacity:.75;margin-top:2px}')
         styles.insert('.dsh-comp-list{position:relative;display:flex;flex-direction:column;gap:6px}.dsh-drop-ind{position:absolute;left:8px;right:8px;height:2px;border-radius:1px;background:var(--dsw-alias-brand-primary);pointer-events:none;transition:top .12s ease;box-shadow:0 0 6px var(--dsw-alias-brand-primary)}')
         const usageOutputTokens = (usage) => {
           if (typeof usage !== 'object' || usage === null) return null
@@ -260,7 +260,7 @@ return {
                   .then(() => {
                     if (!alive) return
                     runEstimate()
-                    timer = ctx.timeout(tick, 1500)
+                    timer = ctx.timeout(tick, 1000)
                   })
               }
               tick()
@@ -359,7 +359,7 @@ return {
               segClickTimerRef.current = ctx.timeout(() => {
                 segClickTimerRef.current = null
                 toggleDetail(segId, el)
-              }, 220)
+              }, 160)
             }
             const toggleDetail = (segId, el) => {
               if (timerRef.current !== null) { timerRef.current(); timerRef.current = null }
@@ -418,7 +418,7 @@ return {
             }, [truncated, line, tooltipAlways, detailSeg])
             const showAfterDelay = () => {
               if (timerRef.current !== null) { timerRef.current(); timerRef.current = null }
-              timerRef.current = ctx.timeout(() => { timerRef.current = null; show() }, 500)
+              timerRef.current = ctx.timeout(() => { timerRef.current = null; show() }, 260)
             }
             const hide = () => {
               if (timerRef.current !== null) { timerRef.current(); timerRef.current = null }
