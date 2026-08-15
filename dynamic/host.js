@@ -601,13 +601,14 @@ return {
         attempts: storeAttempts.slice(),
       }
     })
-    // 修订 34：客户端全量用量（设置页面板；浏览器侧全量折叠 = 唯一权威源）
+    // 修订 34/35：客户端全量用量（设置页面板；浏览器侧全量折叠 = 唯一权威源）
     harness.handle('get-client-usage', async () => {
       await loadConfig()
       if (lastClientUsage === null) return { usage: null }
-      const price = priceOf(lastClientUsage.model)
+      const modelKey = rowKeyOf(lastClientUsage.provider, lastClientUsage.model)
+      const price = priceOf(modelKey)
       if (price === undefined) {
-        return { usage: { at: lastClientUsage.at, model: lastClientUsage.model, provider: lastClientUsage.provider, currency: 'USD', uncachedInput: lastClientUsage.uncachedInput, cacheRead: lastClientUsage.cacheRead, cacheWrite: lastClientUsage.cacheWrite, output: lastClientUsage.output, inCost: null, cacheReadCost: null, cacheWriteCost: null, outCost: null, total: null } }
+        return { usage: { at: lastClientUsage.at, model: modelKey, provider: lastClientUsage.provider, currency: 'USD', uncachedInput: lastClientUsage.uncachedInput, cacheRead: lastClientUsage.cacheRead, cacheWrite: lastClientUsage.cacheWrite, output: lastClientUsage.output, inCost: null, cacheReadCost: null, cacheWriteCost: null, outCost: null, total: null } }
       }
       const inCost = lastClientUsage.uncachedInput / 1e6 * price.in
       const cacheReadCost = lastClientUsage.cacheRead / 1e6 * (price.cacheRead ?? price.in)
@@ -616,7 +617,7 @@ return {
       return {
         usage: {
           at: lastClientUsage.at,
-          model: lastClientUsage.model,
+          model: modelKey,
           provider: lastClientUsage.provider,
           currency: price.currency || 'USD',
           uncachedInput: lastClientUsage.uncachedInput,
