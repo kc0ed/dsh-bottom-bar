@@ -452,3 +452,9 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **排查链**：① `Slots.listSubTree`（settings.section）看 occupants：general/models/plugins/agent-presets 全 active，唯独 `cost-estimate` active:false → 我们的区块渲染失败；② 通读设置区块代码，发现 `previewSegs` 被引用但**全文件无定义**——修订 45-67 把旧的 `previewSegs` 数组构建换成 `makeLineChildren()` 时漏改两处引用 → `ReferenceError` → 渲染崩溃 → 槽位错误边界接管整页。
 - **修法**：等价推导 `previewDockTitle`（仅已启用分段的预览文本，旧语义）+ `hasPreviewSegs` 空态判断，替换两处残留引用。
 - **教训**：① 渲染层崩溃会炸掉**整个槽位**（不是只坏自己那条），用户看到的是「设置页空了」而非报错；② 重构删变量后必须 grep 全文件查残留引用；③ Inspect 槽位 occupants 的 `active` 标志是快速定位「哪条没渲染成功」的入口。
+
+## 45. 硬编码品牌色 → 主题 token：color-mix 是标准姿势（修订 69，2026-08-15）
+- **用户需求**：45-67 修订加的多选条/选中徽章/拖拽光效/脉冲动画**写死了 Claude 橘色**（`#D97757`、`rgba(193,95,60,·)`、`rgba(217,119,87,·)`）、深色边框 `#383731`——「不要写死黄色，根据主题色定义」。
+- **查主题真身**（dsh-claude-theme/theme.css）：`--dsw-alias-brand-primary` 浅 `#C15F3C` / 深 `#D97757` —— **正是写死的两个值**（作者把两套品牌色手动编进了明暗块）；且主题自己用 `color-mix(in srgb, var(--dsw-alias-brand-primary) X%, transparent)` 派生透明强调色（995/1013 行）——这就是官方跟随主题色的姿势，说明运行时 Chromium 支持 color-mix。
+- **修法**：`scripts/tokenize-colors.cjs` 批量替换（幂等）——`#D97757` → `var(--dsw-alias-brand-primary)`；`rgba(193/217,95/119,60/87,A)` → `color-mix(in srgb, var(--dsw-alias-brand-primary) A×100%, transparent)`；`#383731` → `var(--dsw-alias-border-l2)`（深色 border-l2 #3A3934 几乎同值）。共 45 处。中性色（黑/白/深药丸底 rgba(44,39,32,.90)）保持不动。
+- **教训**：① 做「主题化」先 grep 全文件硬编码色 + 查主题 CSS 确认对应 token 的值——写死值和 token 值对得上就说明找对了；② 半透明强调色一律 `color-mix(in srgb, var(--token) X%, transparent)`，不要 rgb() 手拆通道（主题一换就废）；③ 明暗两套块 token 化后值相同 → 冗余但无害，可后续合并。
