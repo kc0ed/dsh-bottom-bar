@@ -11,6 +11,22 @@ return {
 
                 
     
+    const LS_CFG_KEY = 'dsh-bottom-bar:config'
+    const getLocalConfig = () => {
+      try {
+        const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_CFG_KEY) : null
+        if (raw) return JSON.parse(raw)
+      } catch (e) {}
+      return null
+    }
+    const setLocalConfig = (cfg) => {
+      try {
+        if (typeof localStorage !== 'undefined' && cfg && typeof cfg === 'object') {
+          localStorage.setItem(LS_CFG_KEY, JSON.stringify(cfg))
+        }
+      } catch (e) {}
+    }
+
     
     async apply(ctx) {
       // 修订 36（静态包）：Remote contribution——host 侧 SRC 发现按方法名路由，
@@ -979,11 +995,12 @@ body[data-ds-dark-theme] .dsh-price-input {
             const usage = props.useProjection('tokenUsage')
             const projected = props.useProjection('sessionStats')
             const [estimate, setEstimate] = React.useState(null)
-            // 修订 26：首帧就用已加载的配置（重挂时不再先渲染默认值）
-            const [composition, setComposition] = React.useState(Array.isArray(compositionValue) ? compositionValue : null)
-            const [mode, setMode] = React.useState('separate')
-            const [tooltipAlways, setTooltipAlways] = React.useState(false)
-            const [precision, setPrecision] = React.useState('compact')
+            const initDockCfg = getLocalConfig()
+            // 修订 26/62：首帧秒级从 LocalStorage + compositionValue 双重水合，刷新网页 0ms 完美保持所有定制配置
+            const [composition, setComposition] = React.useState(Array.isArray(compositionValue) ? compositionValue : (initDockCfg && Array.isArray(initDockCfg.segments) ? initDockCfg.segments : null))
+            const [mode, setMode] = React.useState(initDockCfg && (initDockCfg.mode === 'separate' || initDockCfg.mode === 'combined') ? initDockCfg.mode : 'separate')
+            const [tooltipAlways, setTooltipAlways] = React.useState(initDockCfg ? initDockCfg.tooltip === 'always' : false)
+            const [precision, setPrecision] = React.useState(initDockCfg && initDockCfg.precision === 'full' ? 'full' : 'compact')
             const [detailSeg, setDetailSeg] = React.useState(null)
             const [panelPos, setPanelPos] = React.useState(null)
             const [panelPlacement, setPanelPlacement] = React.useState('top')
@@ -998,6 +1015,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                 host.call('get-composition')
                   .then((result) => {
                     if (!alive) return
+                    if (result && typeof result === 'object') setLocalConfig(result)
                     if (Array.isArray(result.segments)) setComposition(result.segments)
                     if (result.mode === 'separate' || result.mode === 'combined') setMode(result.mode)
                     if (typeof result.tooltip === 'string') setTooltipAlways(result.tooltip === 'always')
@@ -1318,11 +1336,12 @@ body[data-ds-dark-theme] .dsh-price-input {
         ctx.slots.inject('settings.section', () => ctx.slots.register(
           { name: 'settings.section', id: 'cost-estimate', order: 25, label: '底栏' },
           () => {
-            const [segments, setSegments] = React.useState(Array.isArray(compositionValue) ? compositionValue : null)
-            const [loaded, setLoaded] = React.useState(Array.isArray(compositionValue))
-            const [mode, setMode] = React.useState('separate')
-            const [tooltipAlways, setTooltipAlways] = React.useState(false)
-            const [precision, setPrecision] = React.useState('compact')
+            const initPageCfg = getLocalConfig()
+            const [segments, setSegments] = React.useState(Array.isArray(compositionValue) ? compositionValue : (initPageCfg && Array.isArray(initPageCfg.segments) ? initPageCfg.segments : null))
+            const [loaded, setLoaded] = React.useState(Array.isArray(compositionValue) || !!(initPageCfg && Array.isArray(initPageCfg.segments)))
+            const [mode, setMode] = React.useState(initPageCfg && (initPageCfg.mode === 'separate' || initPageCfg.mode === 'combined') ? initPageCfg.mode : 'separate')
+            const [tooltipAlways, setTooltipAlways] = React.useState(initPageCfg ? initPageCfg.tooltip === 'always' : false)
+            const [precision, setPrecision] = React.useState(initPageCfg && initPageCfg.precision === 'full' ? 'full' : 'compact')
             const [prices, setPrices] = React.useState(null)
             const [pricesOpen, setPricesOpen] = React.useState(false)
             const [vendorTpl, setVendorTpl] = React.useState('auto')
@@ -1430,6 +1449,7 @@ body[data-ds-dark-theme] .dsh-price-input {
               host.call('get-composition')
                 .then((result) => {
                   if (cancelled) return
+                  if (result && typeof result === 'object') setLocalConfig(result)
                   if (Array.isArray(result.segments)) { setSegments(result.segments); setCompositionState(result.segments) }
                   if (result.mode === 'separate' || result.mode === 'combined') { setMode(result.mode); optionsRef.current.mode = result.mode }
                   if (typeof result.tooltip === 'string') { setTooltipAlways(result.tooltip === 'always'); optionsRef.current.tooltip = result.tooltip }
@@ -1482,8 +1502,11 @@ body[data-ds-dark-theme] .dsh-price-input {
             }, [segments])
             const saveOptions = (nextOptions, segs) => {
               optionsRef.current = nextOptions
-              host.call('set-composition', { segments: segs ?? segmentsRef.current, ...nextOptions })
+              const payload = { segments: segs ?? segmentsRef.current, ...nextOptions }
+              setLocalConfig(payload)
+              host.call('set-composition', payload)
                 .then((result) => {
+                  if (result && typeof result === 'object') setLocalConfig(result)
                   if (Array.isArray(result.segments)) { setSegments(result.segments); setCompositionState(result.segments) }
                   if (result.mode === 'separate' || result.mode === 'combined') { setMode(result.mode); optionsRef.current.mode = result.mode }
                   if (typeof result.tooltip === 'string') { setTooltipAlways(result.tooltip === 'always'); optionsRef.current.tooltip = result.tooltip }
