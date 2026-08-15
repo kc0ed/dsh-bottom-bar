@@ -385,3 +385,8 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **历史佐证**：修订 32 之前账本只有 ¥1.81，底栏 ¥11.74 = 1.81 + 9.93（253M 全量价）——**重复一直存在，只是账本小被掩盖**；对账追平后显形。
 - **修法**：删除 liveDelta（连同 `lastSample` 的客户端引用），底栏费用 = 明细面板 = 账本（对账后即全量），单一数据源，永不重复。显示滞后最多 1.5s 轮询间隔。
 - **define 超长 payload 教训**：60KB+ 的 client 代码三次 define 都在**结尾附近**解析失败（host 25KB 从不失败）——超长参数生成时尾部易错；**压缩版**（去注释/空行/行首缩进，JS 无语义依赖，48KB）一次通过。仓库保留带注释完整版，define 用压缩版。
+
+## 34. 客户端全量用量上设置页（修订 34，2026-08-15）
+- 需求：把「客户端全量」（浏览器侧全量折叠，唯一权威源）显示到 **设置 → 底栏** 区块，并顺带做价格统计拓展。
+- 实现：host 在 estimate-cost handler 里缓存客户端捎带的四桶（`lastClientUsage`，带 model/provider/时间戳）→ 新 RPC `get-client-usage` 返回四桶 + 按当前价格表算的费用拆分（inCost/cacheReadCost/cacheWriteCost/outCost/total/currency）；设置页新面板「客户端全量用量（权威源）」每 3s 轮询渲染（四桶 + 缓存命中率 + 分桶费用 + 总计）。
+- 关键点：**零新增数据通路**——全量用量本来就随 estimate-cost 每 1.5s 捎带，host 缓存后设置页只多一个轻量 RPC；生成器 WIRES 表需同步新增 wire（getClientUsage ↔ 'get-client-usage'），否则往返同步会报 unknown wire。

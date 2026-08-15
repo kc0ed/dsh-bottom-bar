@@ -549,6 +549,8 @@ return {
             const rowRefs = React.useRef([])
             const flipTops = React.useRef(null)
             const [diag, setDiag] = React.useState(null)
+            // 修订 34：客户端全量用量面板（浏览器侧全量折叠 = 唯一权威源）
+            const [fullUsage, setFullUsage] = React.useState(null)
             React.useEffect(() => {
               let cancelled = false
               host.call('get-composition')
@@ -563,7 +565,16 @@ return {
                 .catch(() => {})
               host.call('get-prices').then((result) => { if (!cancelled && result.prices) setPrices(result.prices) }).catch(() => {})
               host.call('diagnostics').then((result) => { if (!cancelled) setDiag(result) }).catch(() => {})
+              host.call('get-client-usage').then((result) => { if (!cancelled && result.usage) setFullUsage(result.usage) }).catch(() => {})
               return () => { cancelled = true }
+            }, [])
+            // 修订 34：客户端全量面板每 3s 刷新（host 侧缓存底栏捎带的用量）
+            React.useEffect(() => {
+              let alive = true
+              const timer = ctx.interval(() => {
+                host.call('get-client-usage').then((result) => { if (alive && result.usage) setFullUsage(result.usage) }).catch(() => {})
+              }, 3000)
+              return () => { alive = false; timer() }
             }, [])
             React.useEffect(() => {
               if (loaded) return
@@ -843,6 +854,42 @@ return {
                   React.createElement('input', { type: 'number', step: '0.01', placeholder: '输入价（USD）', value: newIn, onChange: (e) => setNewIn(e.target.value) }),
                   React.createElement('button', { className: 'dsh-comp-btn', onClick: addPrice }, '添加'),
                   React.createElement('button', { className: 'dsh-comp-btn', onClick: resetPrices }, '恢复默认价格'),
+                ),
+              ),
+              // 修订 34：客户端全量用量面板（浏览器侧全量折叠 = 唯一权威源，
+              // host 缓存底栏每 1.5s 捎带的 usage，本面板每 3s 刷新）
+              React.createElement('div', { className: 'dsh-fullusage', style: { display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 10px', borderRadius: 8, background: 'var(--dsw-alias-interactive-bg-hover)', fontSize: 12, lineHeight: 18, color: 'var(--dsw-alias-label-secondary)' } },
+                React.createElement('span', { style: { fontWeight: 600, marginBottom: 2 } },
+                  '客户端全量用量（权威源）' + (fullUsage === null ? ' — 等待底栏轮询…' : ' · ' + fullUsage.model),
+                ),
+                fullUsage !== null && React.createElement(React.Fragment, null,
+                  React.createElement('div', { className: 'dsh-detail-row' },
+                    React.createElement('span', null, '未缓存输入 ' + formatTokens(fullUsage.uncachedInput) + ' tok'),
+                    React.createElement('span', null, '缓存读 ' + formatTokens(fullUsage.cacheRead) + ' tok'),
+                  ),
+                  React.createElement('div', { className: 'dsh-detail-row' },
+                    React.createElement('span', null, '缓存写 ' + formatTokens(fullUsage.cacheWrite) + ' tok'),
+                    React.createElement('span', null, '输出 ' + formatTokens(fullUsage.output) + ' tok'),
+                  ),
+                  React.createElement('div', { className: 'dsh-detail-row' },
+                    React.createElement('span', null, '缓存命中率'),
+                    React.createElement('span', null, (() => { const d = fullUsage.uncachedInput + fullUsage.cacheRead + fullUsage.cacheWrite; return d === 0 ? '—' : Math.round(fullUsage.cacheRead / d * 100) + '%' })()),
+                  ),
+                  fullUsage.total !== null && fullUsage.total !== undefined && React.createElement(React.Fragment, null,
+                    React.createElement('div', { className: 'dsh-detail-sep' }),
+                    React.createElement('div', { className: 'dsh-detail-row' },
+                      React.createElement('span', null, '输入 ' + compactMoney(fullUsage.inCost, fullUsage.currency, 'full')),
+                      React.createElement('span', null, '缓存读 ' + compactMoney(fullUsage.cacheReadCost, fullUsage.currency, 'full')),
+                    ),
+                    React.createElement('div', { className: 'dsh-detail-row' },
+                      React.createElement('span', null, '缓存写 ' + compactMoney(fullUsage.cacheWriteCost, fullUsage.currency, 'full')),
+                      React.createElement('span', null, '输出 ' + compactMoney(fullUsage.outCost, fullUsage.currency, 'full')),
+                    ),
+                    React.createElement('div', { className: 'dsh-detail-row dsh-detail-total' },
+                      React.createElement('span', null, '总计'),
+                      React.createElement('span', null, compactMoney(fullUsage.total, fullUsage.currency, 'full')),
+                    ),
+                  ),
                 ),
               ),
               React.createElement('div', { className: 'dsh-comp-desc', style: { whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginTop: 8 } },

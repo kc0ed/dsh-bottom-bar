@@ -35,6 +35,7 @@ const WIRES = {
   'set-price': 'setPrice',
   'remove-price': 'removePrice',
   'reset-prices': 'resetPrices',
+  'get-client-usage': 'getClientUsage',
   diagnostics: 'diagnostics',
 }
 body = body.replace(/styles\.insert\(/g, 'insertCss(')

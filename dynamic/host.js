@@ -341,6 +341,8 @@ return {
     // ── 修订 20：自研持久化账本（官方 ~/.dsh/cost-estimate.ledger.json） ──
     let ledger = null
     let dirtySessions = new Set()
+    // 修订 34：客户端捎带的最近一次全量用量（设置页「客户端全量」面板数据源）
+    let lastClientUsage = null
     const loadLedger = async () => {
       if (ledger !== null) return
       ledger = { version: 1, sessions: {} }
@@ -555,6 +557,14 @@ return {
         await loadConfig()
         const st = liveStateOf(sessionId)
         const clientUsage = clientUsageOf(args)
+        if (clientUsage !== null && clientUsage !== undefined) {
+          lastClientUsage = {
+            at: Date.now(),
+            ...clientUsage,
+            model: typeof st.lastModel === 'string' && st.lastModel !== '?' ? st.lastModel : fallbackRoute().model,
+            provider: typeof st.lastProvider === 'string' ? st.lastProvider : null,
+          }
+        }
         let live = undefined
         try {
           const sessionsSvc = ctx.get('sessions')
@@ -589,6 +599,33 @@ return {
         storeDir,
         ledgerSessions: ledger === null ? 0 : Object.keys(ledger.sessions).length,
         attempts: storeAttempts.slice(),
+      }
+    })
+    // 修订 34：客户端全量用量（设置页面板；浏览器侧全量折叠 = 唯一权威源）
+    harness.handle('get-client-usage', async () => {
+      await loadConfig()
+      if (lastClientUsage === null) return { usage: null }
+      const price = priceOf(lastClientUsage.model)
+      if (price === undefined) {
+        return { usage: { at: lastClientUsage.at, model: lastClientUsage.model, provider: lastClientUsage.provider, currency: 'USD', uncachedInput: lastClientUsage.uncachedInput, cacheRead: lastClientUsage.cacheRead, cacheWrite: lastClientUsage.cacheWrite, output: lastClientUsage.output, inCost: null, cacheReadCost: null, cacheWriteCost: null, outCost: null, total: null } }
+      }
+      const inCost = lastClientUsage.uncachedInput / 1e6 * price.in
+      const cacheReadCost = lastClientUsage.cacheRead / 1e6 * (price.cacheRead ?? price.in)
+      const cacheWriteCost = lastClientUsage.cacheWrite / 1e6 * (price.cacheWrite ?? price.in)
+      const outCost = lastClientUsage.output / 1e6 * price.out
+      return {
+        usage: {
+          at: lastClientUsage.at,
+          model: lastClientUsage.model,
+          provider: lastClientUsage.provider,
+          currency: price.currency || 'USD',
+          uncachedInput: lastClientUsage.uncachedInput,
+          cacheRead: lastClientUsage.cacheRead,
+          cacheWrite: lastClientUsage.cacheWrite,
+          output: lastClientUsage.output,
+          inCost, cacheReadCost, cacheWriteCost, outCost,
+          total: inCost + cacheReadCost + cacheWriteCost + outCost,
+        },
       }
     })
     // ── 组装配置 + 价格：持久化（官方目录写入，工作区兼容读取） ──
