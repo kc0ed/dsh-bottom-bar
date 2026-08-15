@@ -449,21 +449,48 @@ return {
       }
       return st
     }
-    // 投影历史引导（仅首次建账用一次）：coldSnapshot → tokenUsage 总量
-    const projectionTotals = async (sessionId) => {
+    // 修订 31/32：投影总量提取（ProjectionSnapshot → 4 桶）+ 客户端捎带优先。
+    // 实测：客户端浏览器侧全量折叠是唯一权威源（253M 缓存读）；服务端
+    // sessionProjections.snapshot / coldSnapshot 只有部分数据（43M）。
+    const bucketsFromSnap = (snap) => {
+      if (snap === null || snap === undefined) return null
+      const u = (snap.data && snap.data.tokenUsage) || snap.tokenUsage
+      if (typeof u !== 'object' || u === null) return null
+      const cacheRead = typeof u.cacheReadTokens === 'number' ? u.cacheReadTokens : 0
+      const cacheWrite = typeof u.cacheWriteTokens === 'number' ? u.cacheWriteTokens : 0
+      const input = typeof u.inputTokens === 'number' ? u.inputTokens : 0
+      const uncached = typeof u.uncachedInputTokens === 'number' ? u.uncachedInputTokens : Math.max(0, input - cacheRead - cacheWrite)
+      const output = typeof u.outputTokens === 'number' ? u.outputTokens : 0
+      return { uncachedInput: uncached, output, cacheRead, cacheWrite }
+    }
+    // 修订 32：客户端捎带的投影总量（estimate-cost 请求里的 usage 字段）
+    const clientUsageOf = (args) => {
+      const u = args === null || args === undefined ? undefined : args.usage
+      if (typeof u !== 'object' || u === null) return null
+      const cacheRead = typeof u.cacheReadTokens === 'number' ? u.cacheReadTokens : 0
+      const cacheWrite = typeof u.cacheWriteTokens === 'number' ? u.cacheWriteTokens : 0
+      const uncached = typeof u.uncachedInputTokens === 'number' ? u.uncachedInputTokens : 0
+      const output = typeof u.outputTokens === 'number' ? u.outputTokens : 0
+      if (uncached + output + cacheRead + cacheWrite <= 0) return null
+      return { uncachedInput: uncached, output, cacheRead, cacheWrite }
+    }
+    // 对账源优先级：客户端捎带 → sessionProjections.snapshot(实时会话) → coldSnapshot
+    const projectionTotals = async (sessionId, liveSession) => {
+      try {
+        if (liveSession !== null && liveSession !== undefined) {
+          const svc = ctx.get('sessionProjections')
+          if (svc !== undefined) {
+            const snap = svc.snapshot(liveSession)
+            const b = bucketsFromSnap(snap)
+            if (b !== null) return b
+          }
+        }
+      } catch (err) { /* ignore */ }
       try {
         const svc = ctx.get('sessionProjectionCache')
         if (svc === undefined) return null
         const snap = await svc.coldSnapshot(sessionId)
-        if (snap === null || snap === undefined) return null
-        const u = (snap.data && snap.data.tokenUsage) || snap.tokenUsage
-        if (typeof u !== 'object' || u === null) return null
-        const cacheRead = typeof u.cacheReadTokens === 'number' ? u.cacheReadTokens : 0
-        const cacheWrite = typeof u.cacheWriteTokens === 'number' ? u.cacheWriteTokens : 0
-        const input = typeof u.inputTokens === 'number' ? u.inputTokens : 0
-        const uncached = typeof u.uncachedInputTokens === 'number' ? u.uncachedInputTokens : Math.max(0, input - cacheRead - cacheWrite)
-        const output = typeof u.outputTokens === 'number' ? u.outputTokens : 0
-        return { uncachedInput: uncached, output, cacheRead, cacheWrite }
+        return bucketsFromSnap(snap)
       } catch (err) { return null }
     }
     const fallbackRoute = () => {
@@ -476,38 +503,47 @@ return {
       } catch (err) { /* ignore */ }
       return { provider: null, model: '?' }
     }
-    // 首次建账：把「投影总量 − 实时累计」并入为历史基线（只做一次）
-    const applyBaseOnce = async (sessionId, state) => {
-      if (state.baseApplied) return
-      state.baseApplied = true
-      const proj = await projectionTotals(sessionId)
-      if (proj === null) return
-      const liveSum = { uncachedInput: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+    // 修订 30/32：账本与全量用量持续对账（替代一次性基线）。每次估算（节流
+    // 15s/会话）拿权威总量与账本总量比：账本落后超过阈值（≥1% 且 ≥100K tokens）
+    // 就把差额补进当前渠道名下（幂等、永不缩小）。修复「基线过期」：投影被重建
+    // 后账本自动追平（实测：基线 43M vs 权威 253M 缓存读，明细面板与底栏对不上）。
+    const lastReconcile = new Map()
+    const reconcileWithProjection = async (sessionId, state, liveSession, clientUsage) => {
+      const now = Date.now()
+      const last = lastReconcile.get(sessionId)
+      if (last !== undefined && now - last < 15000) return
+      lastReconcile.set(sessionId, now)
+      let proj = clientUsage
+      if (proj === null || proj === undefined) proj = await projectionTotals(sessionId, liveSession)
+      if (proj === null || proj === undefined) return
+      const total = { uncachedInput: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
       for (const b of state.models.values()) {
-        liveSum.uncachedInput += b.uncachedInput
-        liveSum.output += b.output
-        liveSum.cacheRead += b.cacheRead
-        liveSum.cacheWrite += b.cacheWrite
+        total.uncachedInput += b.uncachedInput
+        total.output += b.output
+        total.cacheRead += b.cacheRead
+        total.cacheWrite += b.cacheWrite
       }
-      const history = {
-        uncachedInput: Math.max(0, proj.uncachedInput - liveSum.uncachedInput),
-        output: Math.max(0, proj.output - liveSum.output),
-        cacheRead: Math.max(0, proj.cacheRead - liveSum.cacheRead),
-        cacheWrite: Math.max(0, proj.cacheWrite - liveSum.cacheWrite),
+      const gap = {
+        uncachedInput: Math.max(0, proj.uncachedInput - total.uncachedInput),
+        output: Math.max(0, proj.output - total.output),
+        cacheRead: Math.max(0, proj.cacheRead - total.cacheRead),
+        cacheWrite: Math.max(0, proj.cacheWrite - total.cacheWrite),
       }
-      const hasHistory = history.uncachedInput + history.output + history.cacheRead + history.cacheWrite > 0
-      if (!hasHistory) return
+      const gapTotal = gap.uncachedInput + gap.output + gap.cacheRead + gap.cacheWrite
+      if (gapTotal <= 0) return
+      const projTotal = proj.uncachedInput + proj.output + proj.cacheRead + proj.cacheWrite
+      if (gapTotal < Math.max(projTotal * 0.01, 100000)) return
       const route = state.lastModel !== null ? { provider: state.lastProvider, model: state.lastModel } : fallbackRoute()
       const key = rowKeyOf(route.provider, route.model)
       const row = state.models.get(key)
       if (row === undefined) {
-        state.models.set(key, { ...history })
+        state.models.set(key, { ...gap })
       } else {
         state.models.set(key, {
-          uncachedInput: row.uncachedInput + history.uncachedInput,
-          output: row.output + history.output,
-          cacheRead: row.cacheRead + history.cacheRead,
-          cacheWrite: row.cacheWrite + history.cacheWrite,
+          uncachedInput: row.uncachedInput + gap.uncachedInput,
+          output: row.output + gap.output,
+          cacheRead: row.cacheRead + gap.cacheRead,
+          cacheWrite: row.cacheWrite + gap.cacheWrite,
         })
       }
       persistSession(sessionId)
@@ -518,13 +554,15 @@ return {
       try {
         await loadConfig()
         const st = liveStateOf(sessionId)
+        const clientUsage = clientUsageOf(args)
+        let live = undefined
         try {
           const sessionsSvc = ctx.get('sessions')
-          const live = sessionsSvc === undefined ? undefined : sessionsSvc.get(sessionId)
+          live = sessionsSvc === undefined ? undefined : sessionsSvc.get(sessionId)
           const route = currentRouteOf(live)
           if (route !== null) healAttribution(st, route.provider, route.model)
         } catch (err) { /* ignore */ }
-        await applyBaseOnce(sessionId, st)
+        await reconcileWithProjection(sessionId, st, live, clientUsage)
         return estimateOf(st)
       } catch (err) {
         console.error('cost-estimate failed:', err)

@@ -371,3 +371,10 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - `cordis_define` 的包是不可变完整快照：每个新版本必须携带**整份** host+client（~40-50KB），没有补丁式 API。体感"每次定义很久" = 模型重新生成整份源码 + 传输 + 预检；缩短办法：小改动攒批合并成一次 define、删动态副本的长注释头（完整注释留在 lib/ 源文件）、长期靠静态包（装一次自动生效）。
 - **往返同步法**：把运行中的动态代码写为 `dynamic/_client-ref.js` → 反向脚本 `scripts/dynamic-to-static.cjs` 变回静态 `lib/client.js`（styles→insertCss、host.call→remote.*、补 ModuleLoader 脚手架，头部自动追加修订注释）→ 正向生成器重建 `dynamic/client.js` → 归一化 diff（去头、缩进对齐、滤空白行）验证 807/807 行一致。生成器 WIRES 表要同步新 RPC（diagnostics）。
 - 生成器遗留：字符串 replace 会留下纯空白残留行（无害）；对比时 PowerShell 必须 `-Encoding UTF8` 读文件，否则中文按 GBK 乱码。
+
+## 32. 账本与全量用量持续对账 + 客户端捎带权威源（修订 30-32，2026-08-15）
+- **症状**：底栏投影合计（输入 1.1M/输出 1.9M/缓存读 253M/¥11.74）远大于账本明细（134K/452K/38.6M/¥1.81）——明细面板"缺历史"。
+- **修订 30**：一次性基线（baseApplied）退役 → `reconcileWithProjection` 持续对账（节流 15s/会话）：权威总量 vs 账本总量，落后 ≥ max(1%, 100K tokens) 就把差额补进当前渠道行（幂等、永不缩小）；重启/投影重建/换会话自动追平。**仍然失败**（账本 41M）。
+- **修订 31**：对账源从 `sessionProjectionCache.coldSnapshot`（磁盘投影缓存，只含部分/旧数据）改为 `sessionProjections.snapshot(实时会话)`。**仍然失败**（账本 43M）。
+- **修订 32（成功）**：服务端投影单元本身只有部分数据（43M 缓存读），**浏览器侧 `useProjection('tokenUsage')` 的全量折叠才是唯一权威源**（实测 253M，覆盖全部 777 步）——客户端在 `estimate-cost` 请求里捎带四桶数值（null 守卫），host 对账源优先级 = 客户端捎带 → 实时投影 → 冷快照。激活后账本追平到 260M，明细面板与底栏一致。
+- **教训**：同一份"投影"在服务端有多个版本（磁盘缓存/实时快照/单元数据），数据完整度天差地别；底栏 UI 显示的值来自客户端投影，**对账必须与 UI 同源**——RPC 本来就每 1.5s 一次，捎带是零成本的对账通道。

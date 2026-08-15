@@ -11,7 +11,7 @@ DSH 底栏统计行插件（可组装 + 预估费用）：接管 `conversation.c
 
 真实启动验证发现硬伤：Host 半体在 loader boot 下报 `service "bottomBar" has been registered`（干净环境可复现、单次 apply 却正常，机制未定位）；且官方 Remote 服务插件需要 `./typert` + `./remote` 产物同步给客户端，本包缺失——即使 boot 修好客户端也无法激活。**按旧版 README 安装会导致 `dsh web` 启动失败（打不开）**，请勿安装。
 
-**当前唯一可用形态 = 动态插件**（修订 27）：在 DSH 会话中作为 `code.host` / `code.client` 运行（见 [dynamic/README.md](dynamic/README.md)）。2026-08-15 已迭代至：增量计费（`session/event` 实时流 O(1) 追加）+ **自研持久化账本**（`<沙箱 workspaceRoot>/.dsh-bottom-bar/ledger.json`：投影基线一次 → 事件追加 → `session/flush` 落盘 → 重启恢复，永不全量重算）+ **渠道@模型归因**（如 `opencode-go@deepseek-v4-flash`）+ 诊断通道 + 双击/加载态/闪烁等 UI 修复。静态包修复完成后会更新本文档并恢复安装说明。
+**当前唯一可用形态 = 动态插件**（修订 32）：在 DSH 会话中作为 `code.host` / `code.client` 运行（见 [dynamic/README.md](dynamic/README.md)）。2026-08-15 已迭代至：增量计费（`session/event` 实时流 O(1) 追加）+ **自研持久化账本**（官方 `~/.dsh/cost-estimate.ledger.json`：投影基线 → 事件追加 → `session/flush` 落盘 → 重启恢复，永不全量重算）+ **持续对账**（客户端捎带全量用量 → 实时投影 → 冷快照，自动追平）+ **渠道/模型归因**（如 `opencode-go/deepseek-v4-flash`）+ 诊断通道 + 双击/加载态/闪烁等 UI 修复。静态包修复完成后会更新本文档并恢复安装说明。
 
 ## 仓库结构
 
@@ -24,8 +24,8 @@ DSH 底栏统计行插件（可组装 + 预估费用）：接管 `conversation.c
 ## 功能
 
 - **8 个统计段**可开关、可拖拽排序（拖动时显示放置指示线，落点 FLIP 动画）：轮/步、LLM 时长、工具调用时长、首 token 平均、吞吐 tok/s、缓存命中、输入/输出 token、**预估费用**
-- **自研持久化账本**（修订 20/27）：用量按「渠道@模型」增量记账，落盘到沙箱工作区 `.dsh-bottom-bar/ledger.json`——首次建账用投影总量做基线，之后事件追加、`session/flush` 同步落盘，**重启恢复继续追加，永不全量重算**；历史归因可自动愈合
-- **渠道感知**（修订 27）：同一模型 id 经不同渠道（如 opencode-go / 免费渠道）分别记账、明细面板标注渠道；价格按模型 id 查（支持未来按渠道覆盖）
+- **自研持久化账本**（修订 20/28/30-32）：用量按「渠道/模型」增量记账，落盘到官方 `~/.dsh/cost-estimate.ledger.json`（写入带会话 danger 权限 stamp；旧工作区文件只作迁移源）——投影基线 + 事件追加、`session/flush` 同步落盘，**重启恢复继续追加，永不全量重算**；历史归因可自动愈合；**持续对账**（客户端捎带 `useProjection('tokenUsage')` 四桶 → 实时投影 → 冷快照）自动把差额补进账本，明细面板与底栏永远一致
+- **渠道感知**（修订 27/29）：同一模型 id 经不同渠道（如 opencode-go / 免费渠道）分别记账，归因键 = 渠道/模型（旧 @ 分隔自动归一）；价格按模型 id 查（支持未来按渠道覆盖）
 - **费用实时跳动**：流式输出时预估费用随 token 实时增长（折叠底账 + 当前轮投影增量，客户端即时计价，零 RPC 等待）
 - **点击分段弹出明细面板**：费用段显示逐模型单价 / 各桶 tokens / 金额 / 小计 / 总计；其他段显示原始数值
 - **截断黑条**（官方 Tooltip 同款）：行溢出时悬停显示完整行，可设"始终显示"
@@ -35,7 +35,7 @@ DSH 底栏统计行插件（可组装 + 预估费用）：接管 `conversation.c
 
 ## 使用（动态插件形态）
 
-在 DSH 会话里让 agent 把 `dynamic/host.js` 与 `dynamic/client.js` 定义为动态插件（`code.host` / `code.client`）并运行即可；配置与预估持久化在 settings 文档同目录（`cost-estimate.composition.json` / `cost-estimate.estimates.json`），会话重启后重跑插件即恢复。
+在 DSH 会话里让 agent 把 `dynamic/host.js` 与 `dynamic/client.js` 定义为动态插件（`code.host` / `code.client`）并运行即可；配置与账本持久化在官方 `~/.dsh`（`cost-estimate.composition.json` / `cost-estimate.ledger.json`），会话重启后重跑插件即恢复。
 
 设置 → **底栏**：
 
