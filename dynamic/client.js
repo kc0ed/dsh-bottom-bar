@@ -263,14 +263,12 @@ body[data-ds-dark-theme] .dsh-detail {
   box-sizing: border-box;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 8px 0;
+  padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid var(--dsw-alias-border-l1);
   background: #FFFFFF;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 24px, #000 calc(100% - 24px), transparent 100%);
-  mask-image: linear-gradient(90deg, transparent 0%, #000 24px, #000 calc(100% - 24px), transparent 100%);
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
@@ -294,8 +292,8 @@ body[data-ds-dark-theme] .dsh-preview-dock {
   min-width: max-content;
   display: inline-flex;
   align-items: center;
-  padding: 0 50%;
-  box-sizing: content-box;
+  padding: 0 4px;
+  box-sizing: border-box;
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
@@ -1353,31 +1351,23 @@ body[data-ds-dark-theme] .dsh-price-input {
                 hoverTimerRef.current = null
               }, 140)
             }
-            // 鼠标悬停条目时：通过亚像素级视口几何差值，将预览分段精准平滑对齐到容器正正中心；移开时不强行回弹
+            // 鼠标悬停条目时：平滑将高光分段滑动对齐，两端自然吸附边框（不留虚空大空白，最多到边缘）；移开时不强行回弹
             React.useEffect(() => {
               const dock = previewDockRef.current
               if (dock === null || dock === undefined) return
               if (hovered !== null && previewSegRefs.current[hovered]) {
                 const el = previewSegRefs.current[hovered]
-                const elRect = el.getBoundingClientRect()
-                const dockRect = dock.getBoundingClientRect()
-                const elCenter = elRect.left + elRect.width / 2
-                const dockCenter = dockRect.left + dockRect.width / 2
-                const delta = elCenter - dockCenter
-                dock.scrollTo({ left: dock.scrollLeft + delta, behavior: 'smooth' })
-              }
-            }, [hovered])
-            // 首次加载或模式切换时，初始视口平滑定位在预览行视觉正中心
-            React.useEffect(() => {
-              const dock = previewDockRef.current
-              if (dock) {
-                const line = dock.querySelector('.dsh-preview-line')
-                if (line) {
-                  const target = (line.scrollWidth - dock.clientWidth) / 2
-                  dock.scrollTo({ left: Math.max(0, target), behavior: 'auto' })
+                const elLeft = el.offsetLeft
+                const elWidth = el.offsetWidth
+                const dockWidth = dock.clientWidth
+                const maxScroll = Math.max(0, dock.scrollWidth - dockWidth)
+                if (maxScroll > 0) {
+                  const idealScroll = elLeft - (dockWidth - elWidth) / 2
+                  const targetScroll = Math.min(maxScroll, Math.max(0, idealScroll))
+                  dock.scrollTo({ left: targetScroll, behavior: 'smooth' })
                 }
               }
-            }, [loaded, mode])
+            }, [hovered])
             React.useEffect(() => {
               let cancelled = false
               host.call('get-composition')
