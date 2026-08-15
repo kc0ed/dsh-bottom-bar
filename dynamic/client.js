@@ -750,11 +750,15 @@ return {
               const n = Number(v)
               return Number.isFinite(n) ? n : undefined
             }
-            // 修订 34/35：客户端全量面板行样式（内联，紧凑两列；显式 row/nowrap
-            // 防任何环境把 flex 降级成块级竖排。⚠️ lineHeight 必须带 px——
+            // 修订 34/35/38：客户端全量面板样式（内联；⚠️ lineHeight 必须带 px——
             // React 的 unitless 属性包含 lineHeight，数字 18 会渲染成无单位
             // 「line-height: 18」= 18 倍字号（216px 行高）→ 上下间距巨大）
-            const fullRow = { display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'nowrap', whiteSpace: 'nowrap', lineHeight: '18px' }
+            // 修订 38 起按用户参考稿重排：2×2 网格 + 标题行命中率徽章 + 虚线总计栏
+            const fullCell = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, whiteSpace: 'nowrap', lineHeight: '18px' }
+            const fullGrid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 16px' }
+            const fullDivider = { borderTop: '1px solid var(--dsw-alias-border-l2)', margin: '3px 0' }
+            const fullValue = { fontWeight: 500, color: 'var(--dsw-alias-label-primary)' }
+            const fullTok = { fontSize: 10, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' }
             const fallbackSegments = loaded ? DEFAULT_COMPOSITION : null
             const effectiveSegments = Array.isArray(segments) ? segments : fallbackSegments
             if (effectiveSegments === null) {
@@ -904,64 +908,62 @@ return {
                   React.createElement('button', { className: 'dsh-comp-btn', onClick: resetPrices }, '恢复默认价格'),
                 ),
               ),
-              // 修订 37f：客户端全量面板重设计——卡片式：标题+模型徽章、数据行
-              // 右对齐、命中率迷你进度条、费用区+加粗总计（lineHeight 必须带 px）
-              React.createElement('div', { className: 'dsh-fullusage', style: { display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 12px', borderRadius: 10, background: 'var(--dsw-alias-interactive-bg-hover)', fontSize: 12, lineHeight: '18px', color: 'var(--dsw-alias-label-secondary)' } },
+              // 修订 38：客户端全量面板按用户参考稿重排——标题行（小号大写样式
+              // 标题 + 右侧绿色「命中率」徽章）、模型名、token 2×2 网格（值 +
+              // 灰色 tok 小后缀）、费用 2×2 网格、虚线顶边总计栏（品牌色加粗）
+              React.createElement('div', { className: 'dsh-fullusage', style: { display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-interactive-bg-hover)', fontSize: 12, lineHeight: '18px', color: 'var(--dsw-alias-label-secondary)', fontVariantNumeric: 'tabular-nums' } },
                 React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
-                  React.createElement('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--dsw-alias-label-primary)' } }, '客户端全量'),
-                  React.createElement('span', { style: { fontSize: 11, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 4, padding: '0 5px' } }, '权威源'),
+                  React.createElement('span', { style: { fontSize: 10, lineHeight: '16px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--dsw-alias-label-tertiary)' } }, '客户端全量 · 权威源'),
+                  React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, lineHeight: '16px', fontWeight: 600, color: '#10b981', background: 'rgba(16, 185, 129, 0.12)', padding: '1px 6px', borderRadius: 4, whiteSpace: 'nowrap' } },
+                    '命中率 ' + (fullUsage === null ? '—' : (() => { const d = fullUsage.uncachedInput + fullUsage.cacheRead + fullUsage.cacheWrite; return d === 0 ? '—' : Math.round(fullUsage.cacheRead / d * 100) + '%' })()),
+                  ),
                 ),
                 fullUsage === null
                   ? React.createElement('span', { style: { fontSize: 11, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' } }, '等待底栏轮询…')
                   : React.createElement(React.Fragment, null,
-                    React.createElement('span', { style: { fontSize: 11, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' } }, fullUsage.model),
-                    React.createElement('div', { style: { borderTop: '1px solid var(--dsw-alias-border-l2)', margin: '2px 0' } }),
-                    React.createElement('div', { style: fullRow },
-                      React.createElement('span', null, '未缓存输入'),
-                      React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)' } }, formatTokens(fullUsage.uncachedInput) + ' tok'),
-                    ),
-                    React.createElement('div', { style: fullRow },
-                      React.createElement('span', null, '缓存读'),
-                      React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)' } }, formatTokens(fullUsage.cacheRead) + ' tok'),
-                    ),
-                    React.createElement('div', { style: fullRow },
-                      React.createElement('span', null, '缓存写'),
-                      React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)' } }, formatTokens(fullUsage.cacheWrite) + ' tok'),
-                    ),
-                    React.createElement('div', { style: fullRow },
-                      React.createElement('span', null, '输出'),
-                      React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)' } }, formatTokens(fullUsage.output) + ' tok'),
-                    ),
-                    React.createElement('div', { style: Object.assign({}, fullRow, { alignItems: 'center' }) },
-                      React.createElement('span', null, '缓存命中率'),
-                      React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                        React.createElement('span', { style: { flex: 'none', width: 64, height: 4, borderRadius: 2, background: 'var(--dsw-alias-interactive-bg-active)', overflow: 'hidden' } },
-                          React.createElement('span', { style: { display: 'block', width: (() => { const d = fullUsage.uncachedInput + fullUsage.cacheRead + fullUsage.cacheWrite; return d === 0 ? 0 : Math.round(fullUsage.cacheRead / d * 100) + '%' })(), height: '100%', background: 'var(--dsw-alias-brand-primary)' } }),
-                        ),
-                        React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)' } }, (() => { const d = fullUsage.uncachedInput + fullUsage.cacheRead + fullUsage.cacheWrite; return d === 0 ? '—' : Math.round(fullUsage.cacheRead / d * 100) + '%' })()),
+                    React.createElement('span', { style: { fontWeight: 600, fontSize: 12, lineHeight: '18px', color: 'var(--dsw-alias-label-primary)' } }, fullUsage.model),
+                    React.createElement('div', { style: fullDivider }),
+                    React.createElement('div', { style: fullGrid },
+                      React.createElement('div', { style: fullCell },
+                        React.createElement('span', null, '未缓存输入'),
+                        React.createElement('span', { style: fullValue }, formatTokens(fullUsage.uncachedInput), React.createElement('small', { style: fullTok }, ' tok')),
+                      ),
+                      React.createElement('div', { style: fullCell },
+                        React.createElement('span', null, '缓存读'),
+                        React.createElement('span', { style: fullValue }, formatTokens(fullUsage.cacheRead), React.createElement('small', { style: fullTok }, ' tok')),
+                      ),
+                      React.createElement('div', { style: fullCell },
+                        React.createElement('span', null, '缓存写'),
+                        React.createElement('span', { style: fullValue }, formatTokens(fullUsage.cacheWrite), React.createElement('small', { style: fullTok }, ' tok')),
+                      ),
+                      React.createElement('div', { style: fullCell },
+                        React.createElement('span', null, '输出'),
+                        React.createElement('span', { style: fullValue }, formatTokens(fullUsage.output), React.createElement('small', { style: fullTok }, ' tok')),
                       ),
                     ),
                     fullUsage.total !== null && fullUsage.total !== undefined && React.createElement(React.Fragment, null,
-                      React.createElement('div', { style: { borderTop: '1px solid var(--dsw-alias-border-l2)', margin: '2px 0' } }),
-                      React.createElement('div', { style: fullRow },
-                        React.createElement('span', null, '输入'),
-                        React.createElement('span', null, compactMoney(fullUsage.inCost, fullUsage.currency, 'full')),
+                      React.createElement('div', { style: fullDivider }),
+                      React.createElement('div', { style: fullGrid },
+                        React.createElement('div', { style: fullCell },
+                          React.createElement('span', null, '输入费用'),
+                          React.createElement('span', null, compactMoney(fullUsage.inCost, fullUsage.currency, 'full')),
+                        ),
+                        React.createElement('div', { style: fullCell },
+                          React.createElement('span', null, '缓存读费用'),
+                          React.createElement('span', null, compactMoney(fullUsage.cacheReadCost, fullUsage.currency, 'full')),
+                        ),
+                        React.createElement('div', { style: fullCell },
+                          React.createElement('span', null, '缓存写费用'),
+                          React.createElement('span', null, compactMoney(fullUsage.cacheWriteCost, fullUsage.currency, 'full')),
+                        ),
+                        React.createElement('div', { style: fullCell },
+                          React.createElement('span', null, '输出费用'),
+                          React.createElement('span', null, compactMoney(fullUsage.outCost, fullUsage.currency, 'full')),
+                        ),
                       ),
-                      React.createElement('div', { style: fullRow },
-                        React.createElement('span', null, '缓存读'),
-                        React.createElement('span', null, compactMoney(fullUsage.cacheReadCost, fullUsage.currency, 'full')),
-                      ),
-                      React.createElement('div', { style: fullRow },
-                        React.createElement('span', null, '缓存写'),
-                        React.createElement('span', null, compactMoney(fullUsage.cacheWriteCost, fullUsage.currency, 'full')),
-                      ),
-                      React.createElement('div', { style: fullRow },
-                        React.createElement('span', null, '输出'),
-                        React.createElement('span', null, compactMoney(fullUsage.outCost, fullUsage.currency, 'full')),
-                      ),
-                      React.createElement('div', { style: Object.assign({}, fullRow, { fontWeight: 700, color: 'var(--dsw-alias-label-primary)', marginTop: 2 }) },
-                        React.createElement('span', null, '总计'),
-                        React.createElement('span', { style: { color: 'var(--dsw-alias-brand-primary)' } }, compactMoney(fullUsage.total, fullUsage.currency, 'full')),
+                      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, marginTop: 2, borderTop: '1px dashed var(--dsw-alias-border-l2)' } },
+                        React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)' } }, '总计费用'),
+                        React.createElement('span', { style: { fontSize: 14, lineHeight: '20px', fontWeight: 700, color: 'var(--dsw-alias-brand-primary)' } }, compactMoney(fullUsage.total, fullUsage.currency, 'full')),
                       ),
                     ),
                   ),

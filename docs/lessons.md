@@ -403,3 +403,10 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **生成器坑**：lib 里 TYPERT_REMOTE 常量若在 factory 顶层，生成后落在动态插件 `return {}` 对象字面量中间（const 声明在对象里 = 语法错误）→ **常量必须放 apply 函数体内**；反向生成器 SCAFFOLD 同步更新（async apply、去掉 `const remote = ctx.remote.bottomBar` 行、inject 去 'remote.bottomBar'）。
 - **profile bundle 配置**：用户层 `cordis.patch.yml` 是 id-targeted（只能覆盖已有条目），**新增插件要走 bundle**：包内 `cordis.patch.yml` 用 `- insert:` 列表 + package.json `"dsh": {"bundle": {"patch": "./cordis.patch.yml"}}`，profile 的 `dsh.profile.bundles` 数组追加包名。验证时 `$DSH_HOME` 指到独立目录 + `--port 0` 干净 boot。
 - 静态包存储改 `node:fs/promises` 直写官方 `~/.dsh`（主进程无会话沙箱，不需要动态版的 danger stamp 链）。
+
+## 37. 用户给参考稿时的重排要点（修订 37f/38，2026-08-15）
+- 用户直接贴了目标渲染稿（暗色卡片：标题行 + 绿色「命中率」徽章、模型名、token/费用 2×2 网格、虚线顶边总计栏）。改 UI 时**以参考稿结构为准**：把「命中率进度条行」改成标题行右侧绿色徽章（`#10b981` + `rgba(16,185,129,.12)` 底），删掉独立的命中率行，卡片明显更紧凑。
+- 网格布局用 `display:grid;grid-template-columns:1fr 1fr` + 每格 `flex space-between` 单元格（`fullCell`），比逐行 flex 少一半高度；值带灰色 `<small> tok</small>` 后缀（`fontSize:10`）。
+- 总计栏用 `borderTop: 1px dashed var(--dsw-alias-border-l2)` + `paddingTop:8`，品牌色加粗 `fontSize:14`；卡片加 `border:1px solid var(--dsw-alias-border-l2)` + `fontVariantNumeric:tabular-nums`（数字等宽对齐）。
+- 颜色全部映射 DSH 主题变量（label-primary/secondary/tertiary、brand-primary），只有徽章绿用固定色（语义色，明暗主题都成立）；lineHeight 依旧必须带 px。
+- 改完同步跑 `node scripts/static-to-dynamic.cjs lib/client.js dynamic/client.js` 再提交，dynamic 镜像保持可 round-trip。
