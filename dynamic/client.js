@@ -497,35 +497,50 @@ body[data-ds-dark-theme] .dsh-comp-row.dsh-just-moved {
   }
 }
 .dsh-multi-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px;
-  border-radius: 10px;
-  background: rgba(193, 95, 60, 0.12);
-  border: 1px solid var(--dsw-alias-brand-primary);
-  color: var(--dsw-alias-label-primary);
-  font-size: 12px;
+  gap: 14px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: rgba(44, 39, 32, 0.90);
+  border: 1px solid rgba(193, 95, 60, 0.5);
+  color: #FFFFFF;
+  font-size: 12.5px;
   font-weight: 500;
-  margin-top: 4px;
-  box-shadow: 0 2px 8px rgba(193, 95, 60, 0.15);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: dsh-pill-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
 }
 body[data-ds-dark-theme] .dsh-multi-bar {
-  background: rgba(217, 119, 87, 0.18);
-  border-color: #D97757;
+  background: rgba(26, 25, 22, 0.94);
+  border-color: rgba(217, 119, 87, 0.55);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+@keyframes dsh-pill-in {
+  0% { transform: translate(-50%, 14px) scale(0.95); opacity: 0; }
+  100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
 }
 .dsh-multi-bar-action {
   font-size: 11.5px;
-  color: var(--dsw-alias-brand-primary);
-  background: transparent;
-  border: 1px solid var(--dsw-alias-brand-primary);
-  border-radius: 5px;
-  padding: 2px 8px;
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 3px 10px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 500;
+  transition: all 0.15s ease;
 }
 .dsh-multi-bar-action:hover {
   background: var(--dsw-alias-brand-primary);
+  border-color: var(--dsw-alias-brand-primary);
   color: #FFFFFF;
 }
 .dsh-price-template-card {
@@ -1718,7 +1733,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                       React.createElement('div', { className: 'dsh-preview-line' }, makeLineChildren()),
                     ),
               ),
-              selectedIds.size > 0 && React.createElement('div', { className: 'dsh-multi-bar' },
+              selectedIds.size > 1 && React.createElement('div', { className: 'dsh-multi-bar' },
                 React.createElement('span', null, '✨ 已选 ' + selectedIds.size + ' 项 · 拖拽移动到新位置 · 释放后自动完成'),
                 React.createElement('div', { style: { display: 'flex', gap: 6 } },
                   React.createElement('button', { className: 'dsh-multi-bar-action', onClick: () => { const all = new Set(effectiveSegments.map((s) => s.id)); setSelectedIds(all); selectedIdsRef.current = all } }, '全选'),
