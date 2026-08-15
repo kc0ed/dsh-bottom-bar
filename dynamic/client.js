@@ -611,12 +611,13 @@ return {
               host.call('get-client-usage').then((result) => { if (!cancelled && result.usage) setFullUsage(result.usage) }).catch(() => {})
               return () => { cancelled = true }
             }, [])
-            // 修订 34：客户端全量面板每 3s 刷新（host 侧缓存底栏捎带的用量）
+            // 修订 34/42：客户端全量面板每 1s 刷新（host 侧缓存底栏捎带的用量——
+            // 3s 轮询 + 底栏 1s 心跳最坏要等 4s；修订 42 降为 1s 与心跳同频，≤1s 出数）
             React.useEffect(() => {
               let alive = true
               const timer = ctx.interval(() => {
                 host.call('get-client-usage').then((result) => { if (alive && result.usage) setFullUsage(result.usage) }).catch(() => {})
-              }, 3000)
+              }, 1000)
               return () => { alive = false; timer() }
             }, [])
             React.useEffect(() => {
