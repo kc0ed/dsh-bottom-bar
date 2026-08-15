@@ -1237,10 +1237,21 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [selectedIds, setSelectedIds] = React.useState(new Set())
             const selectedIdsRef = React.useRef(new Set())
             selectedIdsRef.current = selectedIds
+            const lastClickedIndexRef = React.useRef(null)
             const [justMovedIds, setJustMovedIds] = React.useState(new Set())
             const [diag, setDiag] = React.useState(null)
             // 修订 34：客户端全量用量面板（浏览器侧全量折叠 = 唯一权威源）
             const [fullUsage, setFullUsage] = React.useState(null)
+            React.useEffect(() => {
+              const onKeyDown = (e) => {
+                if (e.key === 'Escape' && selectedIdsRef.current.size > 0) {
+                  setSelectedIds(new Set())
+                  selectedIdsRef.current = new Set()
+                }
+              }
+              if (typeof window !== 'undefined') window.addEventListener('keydown', onKeyDown)
+              return () => { if (typeof window !== 'undefined') window.removeEventListener('keydown', onKeyDown) }
+            }, [])
             React.useEffect(() => {
               let cancelled = false
               host.call('get-composition')
@@ -1313,7 +1324,7 @@ body[data-ds-dark-theme] .dsh-price-input {
               const current = segmentsRef.current
               if (from === null || !Array.isArray(current) || to === null) return
               const curSelected = selectedIdsRef.current
-              const isBatch = curSelected.size > 1 && curSelected.has(current[from].id)
+              const isBatch = curSelected.size > 1 && curSelected.has(current[from]?.id)
 
               flipTops.current = rowRefs.current.map((el) => (el === null || el === undefined ? 0 : el.getBoundingClientRect().top))
 
@@ -1331,6 +1342,7 @@ body[data-ds-dark-theme] .dsh-price-input {
 
                 const next = nonMovingItems.slice()
                 next.splice(insertIndex, 0, ...movingItems)
+                if (next.map((s) => s.id).join(',') === current.map((s) => s.id).join(',')) return
                 segmentsRef.current = next
                 setSegments(next)
                 setCompositionState(next)
@@ -1366,26 +1378,64 @@ body[data-ds-dark-theme] .dsh-price-input {
               setIndicatorTop(null)
               if (Array.isArray(segmentsRef.current)) saveOptions(optionsRef.current)
             }
-            const onRowClick = (segId, e) => {
-              if (e.ctrlKey || e.metaKey) {
+            const onGripClick = (index, segId, e) => {
+              e.stopPropagation()
+              const next = new Set(selectedIdsRef.current)
+              if (next.has(segId)) next.delete(segId)
+              else next.add(segId)
+              selectedIdsRef.current = next
+              setSelectedIds(next)
+              lastClickedIndexRef.current = index
+            }
+            const onRowClick = (index, segId, e) => {
+              const current = segmentsRef.current || []
+              if (e.shiftKey && lastClickedIndexRef.current !== null && lastClickedIndexRef.current !== index) {
+                const start = Math.min(lastClickedIndexRef.current, index)
+                const end = Math.max(lastClickedIndexRef.current, index)
+                const next = new Set(selectedIdsRef.current)
+                for (let i = start; i <= end; i++) {
+                  if (current[i]) next.add(current[i].id)
+                }
+                selectedIdsRef.current = next
+                setSelectedIds(next)
+                lastClickedIndexRef.current = index
+              } else if (e.ctrlKey || e.metaKey) {
                 const next = new Set(selectedIdsRef.current)
                 if (next.has(segId)) next.delete(segId)
                 else next.add(segId)
                 selectedIdsRef.current = next
                 setSelectedIds(next)
-              } else if (selectedIdsRef.current.size > 0 && !selectedIdsRef.current.has(segId)) {
-                const next = new Set([segId])
-                selectedIdsRef.current = next
-                setSelectedIds(next)
+                lastClickedIndexRef.current = index
+              } else {
+                if (selectedIdsRef.current.size > 1) {
+                  const next = new Set([segId])
+                  selectedIdsRef.current = next
+                  setSelectedIds(next)
+                } else if (selectedIdsRef.current.has(segId)) {
+                  const next = new Set()
+                  selectedIdsRef.current = next
+                  setSelectedIds(next)
+                } else {
+                  const next = new Set([segId])
+                  selectedIdsRef.current = next
+                  setSelectedIds(next)
+                }
+                lastClickedIndexRef.current = index
               }
             }
             const onRowDragStart = (index, segId, e) => {
               let cur = selectedIdsRef.current
               if (!cur.has(segId)) {
-                cur = new Set([segId])
+                if (e.ctrlKey || e.metaKey) {
+                  cur = new Set(cur)
+                  cur.add(segId)
+                } else {
+                  cur = new Set([segId])
+                }
                 selectedIdsRef.current = cur
                 setSelectedIds(cur)
               }
+              lastClickedIndexRef.current = index
               setDragFrom(index)
               dragFromRef.current = index
               e.dataTransfer.effectAllowed = 'move'
@@ -1573,11 +1623,19 @@ body[data-ds-dark-theme] .dsh-price-input {
               const isSelected = selectedIds.has(seg.id)
               const isDraggingThis = dragFrom === index || (dragFrom !== null && isSelected && selectedIds.has(effectiveSegments[dragFrom]?.id))
               const isJustMoved = justMovedIds.has(seg.id)
-              let selectGrip = React.createElement('span', { className: 'dsh-comp-grip' }, '⠿')
+              let selectGrip = React.createElement('span', {
+                className: 'dsh-comp-grip',
+                title: '点击勾选多选 / 按住拖拽排序',
+                onClick: (e) => onGripClick(index, seg.id, e),
+              }, '⠿')
               if (isSelected) {
                 const orderedSelected = effectiveSegments.filter((s) => selectedIds.has(s.id))
                 const sIndex = orderedSelected.findIndex((s) => s.id === seg.id) + 1
-                selectGrip = React.createElement('span', { className: 'dsh-comp-selected-badge' }, '✓ ' + (selectedIds.size > 1 ? '#' + sIndex : '已选'))
+                selectGrip = React.createElement('span', {
+                  className: 'dsh-comp-selected-badge',
+                  title: '已选中 · 点击取消选择',
+                  onClick: (e) => onGripClick(index, seg.id, e),
+                }, '✓ ' + (selectedIds.size > 1 ? '#' + sIndex : '已选'))
               }
               return React.createElement(
                 'div',
@@ -1586,7 +1644,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                   key: seg.id,
                   ref: (el) => { rowRefs.current[index] = el },
                   draggable: true,
-                  onClick: (e) => onRowClick(seg.id, e),
+                  onClick: (e) => onRowClick(index, seg.id, e),
                   onMouseEnter: () => setHovered(seg.id),
                   onMouseLeave: () => setHovered(null),
                   onDragStart: (e) => onRowDragStart(index, seg.id, e),
@@ -1635,7 +1693,7 @@ body[data-ds-dark-theme] .dsh-price-input {
               React.createElement('div', { className: 'dsh-preview' },
                 React.createElement('div', { className: 'dsh-preview-header' },
                   React.createElement('span', { className: 'dsh-preview-label' }, '底栏效果预览'),
-                  React.createElement('span', { className: 'dsh-preview-hint' }, '可横向滑动 · 支持 Ctrl 多选批量拖拽'),
+                  React.createElement('span', { className: 'dsh-preview-hint' }, '可横向滑动 · 支持 Ctrl / 1键点击多选批量拖拽'),
                 ),
                 previewSegs.length === 0
                   ? React.createElement('span', { className: 'dsh-preview-empty' }, '（所有分段均已隐藏）')
@@ -1644,8 +1702,12 @@ body[data-ds-dark-theme] .dsh-price-input {
                     ),
               ),
               selectedIds.size > 0 && React.createElement('div', { className: 'dsh-multi-bar' },
-                React.createElement('span', null, '✨ 已按原序选中 ' + selectedIds.size + ' 项 · 按住 Ctrl 可增减选择 · 拖拽任意一项即可批量重排'),
-                React.createElement('button', { className: 'dsh-multi-bar-action', onClick: () => { setSelectedIds(new Set()); selectedIdsRef.current = new Set() } }, '清除选择'),
+                React.createElement('span', null, '✨ 已按原序选中 ' + selectedIds.size + ' 项 · 拖拽任意一项批量重排 · 支持 Shift 连选 / Ctrl 增减'),
+                React.createElement('div', { style: { display: 'flex', gap: 6 } },
+                  React.createElement('button', { className: 'dsh-multi-bar-action', onClick: () => { const all = new Set(effectiveSegments.map((s) => s.id)); setSelectedIds(all); selectedIdsRef.current = all } }, '全选'),
+                  React.createElement('button', { className: 'dsh-multi-bar-action', onClick: () => { const inv = new Set(effectiveSegments.filter((s) => !selectedIds.has(s.id)).map((s) => s.id)); setSelectedIds(inv); selectedIdsRef.current = inv } }, '反选'),
+                  React.createElement('button', { className: 'dsh-multi-bar-action', onClick: () => { setSelectedIds(new Set()); selectedIdsRef.current = new Set() } }, '清除 (Esc)'),
+                ),
               ),
               React.createElement('div', { className: 'dsh-comp-list', ref: listRef,
                 onDragOver: (e) => {
