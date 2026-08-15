@@ -1,41 +1,20 @@
 // ══════════════════════════════════════════════════════════════════
-// 同步说明（改本文件前必读）
+// dsh-bottom-bar · 动态 Host 半体（与线上运行版本同步，修订 27）
 // ──
-// 1) 价格：按 model id 匹配（USD/CNY，每 1M tokens）。DEFAULT_PRICES 内置
-//    官方 DeepSeek V4 系列（2026-08-14 官方价格页）：
-//    · deepseek-v4-flash：输入（缓存未命中）1 / 缓存命中 0.02 / 输出 2（元）
-//    · deepseek-v4-pro：输入（缓存未命中）3 / 缓存命中 0.025 / 输出 6（元）
-//    · deepseek-chat / deepseek-reasoner 已随官方下架移除（2026-08-14）。
-//    · 缓存写无官方价，flash/pro 均按缓存命中同价内置（设置页可改/清空=
-//      无此桶按输入价计费）。
-//    ⚠️ 官方 2026-08-17 00:00 起改为峰谷定价（空闲时段为高峰一半），
-//    暂未实现，后续再看。
-//    其他模型在设置页按需添加（新增填输入价，输出/缓存读/缓存写按
-//    5×/0.1×/1.25× 自动派生）。用户覆盖存于配置文件 prices 字段（version
-//    4），estimate-cost 实时使用合并结果。缓存桶可缺省（undefined=该模型
-//    无此桶，计费回退输入价）；⚠️ RPC 线路上用 null 编码缺省桶（undefined
-//    不是合法 JSON，会被线上协议拒绝：'must be lossless JSON data'）。
-// 2) 组装配置（2026-08-14）：{mode, tooltip, precision, segments, prices}。
-//    settings 服务注册需要 zod schema（动态插件无 zod），故配置以 JSON
-//    持久化到 settings 文档同目录的 cost-estimate.composition.json。
-// 3) 明细字段（pkg-51 起，点击底栏分段的明细面板用）：estimateOf 对每个
-//    有价模型输出 priceIn/priceCacheRead/priceCacheWrite/priceOut（单价，
-//    缺省桶=null）与 inCost/cacheReadCost/cacheWriteCost/outCost（分桶金额）。
-// 4) lastSample（pkg-55 起）：estimateOf 额外返回折叠时看到的最后一个用量
-//    样本 {model, uncachedInput, output, cacheRead, cacheWrite}（null=无用量），
-//    作为客户端「折叠底账 + 当前轮投影增量」的锚点：展示 =
-//    foldTotal + max(0, cost(投影) − cost(lastSample))。
-// 5) 预估缓存：内存缓存（pkg-57 起，TTL 5s）+ 持久化磁盘缓存（pkg-58 起，
-//    TTL 5min，写盘节流 30s）。磁盘缓存存于 settings 文档同目录的
-//    cost-estimate.estimates.json（{version, updatedAt, entries:{sessionId:
-//    {foldedAt, result}}}），页面刷新/切会话/插件重启后直接读盘秒出，不再
-//    全量重算。
-// 6) 修订 18（大会话性能）：内存 TTL 30s；磁盘 TTL 30min + stale-while-
-//    revalidate（命中磁盘秒回旧值，后台异步重折）；折叠分块让出事件循环
-//    （每 4000 事件 ctx.timeout(0)）——实测本会话 11.5MB / ~9.8 万事件，
-//    全量折叠同步执行会堵死服务器事件循环，设置页等其他 RPC 排队十几秒。
-//    ⚠️ Host 半体必须声明 inject: ['timer']——ctx.timeout 是属性访问，受
-//    注入门控（未声明会被 Host guard 拒绝：'service "timer" is not injected'）。
+// 由动态插件 cost-1 的 host 半体固化（harness.handle / ctx.get 服务）。
+// 关键事实（2026-08-15 实测）：
+// · 动态 Host 的 fs 是会话沙箱（workspace-write），写 ~/.dsh 被拒
+//   （FS_SANDBOX_DENIED）；沙箱 workspaceRoot 是 telegram-saver（非会话
+//   工作区）——账本/配置实际写在 <workspaceRoot>/.dsh-bottom-bar/。
+//   诊断 handler 暴露 defaultMode/workspaceRoot/resolve 与逐策略写入探测。
+// · request/context 事件仅「模型变更时」追加，订阅前可能从未收到 →
+//   lastModel 不能只靠事件流；改用实时会话 session.contextFold（懒折叠
+//   getter，含 provider/model）取当前渠道+模型，并就地愈合历史归因。
+// · 归因键 = 「渠道@模型」（如 opencode-go@deepseek-v4-flash）；价格按
+//   模型 id 查（先试完整键，支持未来按渠道覆盖）。
+// · 账本：首次建账用投影冷快照做基线（baseApplied 一次），之后
+//   session/event 每事件 O(1) 追加，session/flush（parallel 检查点）落盘
+//   + 60s 兜底；重启从账本恢复继续追加，永不全量重算（用户设计）。
 // ══════════════════════════════════════════════════════════════════
 return {
   inject: ['timer'],
@@ -48,21 +27,27 @@ return {
       'deepseek-v4-pro': { currency: 'CNY', in: 3, cacheRead: 0.025, cacheWrite: 0.025, out: 6 },
       // deepseek-chat / deepseek-reasoner 已下架（2026-08-14），不再内置
     }
-
-    const fresh = () => ({ models: new Map(), lastModel: null, lastUsage: null })
-
+    const fresh = () => ({ models: new Map(), lastModel: null, lastProvider: null, lastUsage: null })
+    // 归因键：渠道@模型（渠道可缺省）。价格按模型 id 查（先查完整键，再查模型部分）
+    const rowKeyOf = (provider, model) => {
+      const m = model === null || model === undefined || model === '?' ? '?' : model
+      const p = provider === null || provider === undefined || provider === '' || provider === '?' ? null : provider
+      return p === null ? m : p + '@' + m
+    }
+    const modelPartOf = (key) => {
+      const at = typeof key === 'string' ? key.indexOf('@') : -1
+      return at === -1 ? key : key.slice(at + 1)
+    }
     const applyUsage = (state, usage, turn, step) => {
-      const model = state.lastModel === null ? '?' : state.lastModel
+      const rowKey = rowKeyOf(state.lastProvider, state.lastModel)
       const buckets = {
         uncachedInput: usage.inputTokens || 0,
         output: usage.outputTokens || 0,
         cacheRead: usage.cacheReadTokens || 0,
         cacheWrite: usage.cacheWriteTokens || 0,
       }
-      const prev = state.lastUsage !== null && state.lastUsage.turn === turn && state.lastUsage.step === step
-        ? state.lastUsage
-        : null
-      const key = prev !== null ? prev.model : model
+      const prev = state.lastUsage !== null && state.lastUsage.turn === turn && state.lastUsage.step === step ? state.lastUsage : null
+      const key = prev !== null ? prev.model : rowKey
       if (prev !== null) {
         const oldRow = state.models.get(prev.model)
         if (oldRow !== undefined) {
@@ -72,7 +57,7 @@ return {
           oldRow.cacheWrite -= prev.cacheWrite
         }
       }
-      state.lastUsage = { turn, step, model: key, ...buckets }
+      state.lastUsage = { turn, step, model: key, provider: state.lastProvider, ...buckets }
       let row = state.models.get(key)
       if (row === undefined) {
         row = { uncachedInput: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
@@ -83,12 +68,16 @@ return {
       row.cacheRead += buckets.cacheRead
       row.cacheWrite += buckets.cacheWrite
     }
-
     const foldEvent = (state, event) => {
       if (event.type === 'request/context') {
+        state.lastProvider = event.data.provider === undefined ? null : event.data.provider
         state.lastModel = event.data.model
       } else if (event.type === 'request/header') {
-        state.lastModel = event.data.header.config.model
+        const cfg = event.data.header.config
+        if (cfg !== null && cfg !== undefined) {
+          if (cfg.provider !== undefined) state.lastProvider = cfg.provider
+          if (cfg.model !== undefined) state.lastModel = cfg.model
+        }
       }
       let usage
       let turn
@@ -104,11 +93,145 @@ return {
       }
       if (usage !== undefined) applyUsage(state, usage, turn, step)
     }
-
-    // 合并价格：用户覆盖优先；缓存桶缺省保持 undefined（无此桶），计费时回退输入价
+    // 修订 27：从实时会话取当前渠道+模型（request/context 仅变更时追加）
+    const currentRouteOf = (session) => {
+      try {
+        if (session === null || session === undefined) return null
+        const cf = session.contextFold
+        if (cf === null || cf === undefined) return null
+        const model = typeof cf.model === 'string' && cf.model.length > 0 ? cf.model : null
+        if (model === null) return null
+        const provider = typeof cf.provider === 'string' && cf.provider.length > 0 ? cf.provider : null
+        return { provider, model }
+      } catch (err) { /* ignore */ }
+      return null
+    }
+    // 修订 26/27：愈合历史归因（"?" 行 + 裸模型行迁到 渠道@模型）
+    const healAttribution = (state, provider, model) => {
+      if (model === null || model === '?' || model === undefined) return
+      const key = rowKeyOf(provider, model)
+      if (state.lastModel === null || state.lastModel === '?') state.lastModel = model
+      if (state.lastProvider === null || state.lastProvider === '?') state.lastProvider = provider === null ? null : provider
+      const q = state.models.get('?')
+      if (q !== undefined) {
+        const row = state.models.get(key)
+        if (row === undefined) {
+          state.models.set(key, { uncachedInput: q.uncachedInput, output: q.output, cacheRead: q.cacheRead, cacheWrite: q.cacheWrite })
+        } else {
+          row.uncachedInput += q.uncachedInput
+          row.output += q.output
+          row.cacheRead += q.cacheRead
+          row.cacheWrite += q.cacheWrite
+        }
+        state.models.delete('?')
+      }
+      if (key !== model) {
+        const bare = state.models.get(model)
+        if (bare !== undefined && !state.models.has(key)) {
+          state.models.set(key, bare)
+          state.models.delete(model)
+        }
+      }
+      if (state.lastUsage !== null) {
+        const lu = state.lastUsage
+        if (lu.model === '?' || (lu.model === model && key !== model)) {
+          state.lastUsage = { ...lu, model: key, provider: state.lastUsage.provider === null || state.lastUsage.provider === undefined ? provider : state.lastUsage.provider }
+        }
+      }
+    }
+    // ── 存储路径 + 诊断（修订 21/22） ──
+    let workspaceRoot = null
+    let sandboxDefaultMode = null
+    let sandboxResolvedMode = null
+    let sandboxResolvedRoot = null
+    let fsAvailability = 'unknown'
+    try {
+      const policy = ctx.get('sandboxPolicy')
+      if (policy !== undefined) {
+        sandboxDefaultMode = typeof policy.defaultMode === 'string' ? policy.defaultMode : null
+        if (typeof policy.workspaceRoot === 'string' && policy.workspaceRoot.length > 0) {
+          workspaceRoot = policy.workspaceRoot.replace(/[\\/]+$/, '')
+        }
+        try {
+          const resolved = policy.resolve()
+          if (resolved !== null && resolved !== undefined) {
+            sandboxResolvedMode = typeof resolved.mode === 'string' ? resolved.mode : null
+            sandboxResolvedRoot = typeof resolved.workspaceRoot === 'string' ? resolved.workspaceRoot : null
+          }
+        } catch (err) { /* ignore */ }
+      }
+    } catch (err) { /* ignore */ }
+    let storeDir = null
+    let ledgerFile = null
+    let configFile = null
+    const storeAttempts = []
+    const recordAttempt = (label, outcome) => {
+      storeAttempts.push({ label, ok: outcome.ok, error: outcome.error === undefined ? null : outcome.error, code: outcome.code === null ? null : outcome.code })
+      if (storeAttempts.length > 12) storeAttempts.shift()
+    }
+    const tryWrite = async (dir, relativeName, content, policy) => {
+      const fsSvc = ctx.get('fs')
+      if (fsSvc === undefined) return { ok: false, error: 'fs service unavailable via ctx.get', code: null }
+      try {
+        const target = await fsSvc.resolve(dir + '/' + relativeName)
+        await fsSvc.writeText(target, content, undefined, undefined, policy)
+        return { ok: true, error: null, code: null }
+      } catch (err) {
+        const code = err !== null && err !== undefined && typeof err.code === 'string' ? err.code : null
+        const message = err !== null && err !== undefined && typeof err.message === 'string' ? err.message : String(err)
+        return { ok: false, error: message, code }
+      }
+    }
+    const probePolicy = (mode) => ({ mode, workspaceRoot: workspaceRoot === null ? undefined : workspaceRoot })
+    // 写入统一走这里：多级降级（子目录→根目录，默认策略→显式策略）并记录诊断
+    const writeStoreFile = async (relativeName, content) => {
+      fsAvailability = ctx.get('fs') === undefined ? 'missing' : 'available'
+      if (fsAvailability === 'missing' || workspaceRoot === null) {
+        recordAttempt(relativeName + '@no-fs-or-root', { ok: false, error: 'fs missing or workspaceRoot null', code: null })
+        return false
+      }
+      const dirs = storeDir !== null && storeDir !== workspaceRoot ? [storeDir, workspaceRoot] : [workspaceRoot]
+      const policies = [
+        { label: 'default', policy: undefined },
+        { label: 'ws-write', policy: probePolicy('workspace-write') },
+        { label: 'danger', policy: probePolicy('danger-full-access') },
+      ]
+      for (const dir of dirs) {
+        for (const p of policies) {
+          const outcome = await tryWrite(dir, relativeName, content, p.policy)
+          recordAttempt(relativeName + '@' + dir.replace(/^.*[\\/]/, '') + '/' + p.label, outcome)
+          if (outcome.ok) {
+            if (storeDir !== dir && dirs.length > 1) {
+              storeDir = dir
+              ledgerFile = storeDir + '/ledger.json'
+              configFile = storeDir + '/composition.json'
+            }
+            return true
+          }
+        }
+      }
+      return false
+    }
+    const ensureStorePaths = async () => {
+      if (workspaceRoot === null || storeDir !== null) return
+      const fsSvc = ctx.get('fs')
+      storeDir = workspaceRoot + '/.dsh-bottom-bar'
+      if (fsSvc !== undefined) {
+        try {
+          const dirTarget = await fsSvc.resolve(storeDir)
+          const info = await fsSvc.stat(dirTarget)
+          if (info === undefined) storeDir = workspaceRoot
+        } catch (err) { storeDir = workspaceRoot }
+      }
+      ledgerFile = storeDir + '/ledger.json'
+      configFile = storeDir + '/composition.json'
+    }
+    // 修订 27：价格按模型 id 查（支持未来 渠道@模型 覆盖）
     const priceOf = (model) => {
-      const user = configPrices[model]
-      const base = DEFAULT_PRICES[model]
+      const modelPart = modelPartOf(model)
+      const user = configPrices === null || configPrices === undefined ? undefined
+        : (configPrices[model] !== undefined ? configPrices[model] : configPrices[modelPart])
+      const base = DEFAULT_PRICES[modelPart]
       if (user === undefined) return base
       if (base === undefined) return user
       return {
@@ -119,7 +242,6 @@ return {
         out: user.out !== undefined ? user.out : base.out,
       }
     }
-
     const estimateOf = (state) => {
       const priced = []
       const unpriced = []
@@ -134,7 +256,6 @@ return {
           continue
         }
         const currency = price.currency || 'USD'
-        // 分桶金额与单价（明细面板用；缺省桶=无此桶，计费回退输入价）
         const inCost = u.uncachedInput / 1e6 * price.in
         const cacheReadCost = u.cacheRead / 1e6 * (price.cacheRead ?? price.in)
         const cacheWriteCost = u.cacheWrite / 1e6 * (price.cacheWrite ?? price.in)
@@ -144,7 +265,6 @@ return {
         priced.push({
           model, cost, currency,
           uncachedInput: u.uncachedInput, output: u.output, cacheRead: u.cacheRead, cacheWrite: u.cacheWrite,
-          // ⚠️ 缺省桶线上用 null 编码（undefined 不是合法 JSON）
           priceIn: price.in,
           priceCacheRead: price.cacheRead === undefined ? null : price.cacheRead,
           priceCacheWrite: price.cacheWrite === undefined ? null : price.cacheWrite,
@@ -152,9 +272,9 @@ return {
           inCost, cacheReadCost, cacheWriteCost, outCost,
         })
       }
-      // 折叠时看到的最后一个用量样本（客户端实时增量锚点；null=无用量）
       const lastSample = state.lastUsage === null ? null : {
         model: state.lastUsage.model,
+        provider: state.lastUsage.provider === undefined ? null : state.lastUsage.provider,
         uncachedInput: state.lastUsage.uncachedInput,
         output: state.lastUsage.output,
         cacheRead: state.lastUsage.cacheRead,
@@ -162,145 +282,227 @@ return {
       }
       return { totals, priced, unpriced, hasUsage: anyTokens, lastSample }
     }
-
-    // ── 预估缓存（修订 15 + 修订 18）：内存 30s + 磁盘 30min（写盘节流 30s） ──
-    // 磁盘文件：settings 文档同目录 cost-estimate.estimates.json
-    const ESTIMATE_MEM_TTL = 30000
-    const ESTIMATE_DISK_TTL = 1800000
-    const FOLD_CHUNK = 4000
-    const estimateMem = new Map()
-    const folding = new Map()
-    let diskEntries = null
-    let diskDirty = false
-    let lastDiskWrite = 0
-    let estimateFile = null
-    const loadDiskCache = async () => {
-      if (diskEntries !== null) return
-      diskEntries = {}
-      if (estimateFile === null) return
+    // ── 修订 20：自研持久化账本（工作区 .dsh-bottom-bar/ledger.json） ──
+    let ledger = null
+    let dirtySessions = new Set()
+    const loadLedger = async () => {
+      if (ledger !== null) return
+      ledger = { version: 1, sessions: {} }
+      if (ledgerFile === null) return
       const fsSvc = ctx.get('fs')
       if (fsSvc === undefined) return
       try {
-        const target = await fsSvc.resolve(estimateFile)
+        const target = await fsSvc.resolve(ledgerFile)
         const info = await fsSvc.stat(target)
-        if (info !== undefined) {
-          const text = await fsSvc.readText(target)
-          const parsed = JSON.parse(text)
-          if (parsed !== null && typeof parsed === 'object' && parsed.entries !== null && typeof parsed.entries === 'object') {
-            diskEntries = parsed.entries
+        if (info === undefined) return
+        const text = await fsSvc.readText(target)
+        const parsed = JSON.parse(text)
+        if (parsed !== null && typeof parsed === 'object' && parsed.sessions !== null && typeof parsed.sessions === 'object') {
+          ledger = parsed
+        }
+      } catch (err) { /* 首次无文件/损坏：保持空账本 */ }
+    }
+    const serializeState = (state) => {
+      const models = {}
+      for (const [model, b] of state.models) {
+        models[model] = { uncachedInput: b.uncachedInput, output: b.output, cacheRead: b.cacheRead, cacheWrite: b.cacheWrite }
+      }
+      return { lastModel: state.lastModel, lastProvider: state.lastProvider, lastUsage: state.lastUsage, baseApplied: state.baseApplied === true, models }
+    }
+    const writeLedger = async () => {
+      if (ledger === null) return
+      await writeStoreFile('ledger.json', JSON.stringify({ version: 1, updatedAt: new Date().toISOString(), sessions: ledger.sessions }, null, 2))
+    }
+    const persistSession = (sessionId) => {
+      const st = liveStates.get(sessionId)
+      if (st === undefined || ledger === null) return
+      ledger.sessions[sessionId] = serializeState(st)
+      dirtySessions.add(sessionId)
+    }
+    // 启动时先读账本，再订阅事件（避免漏事件/重复）
+    await ensureStorePaths()
+    await loadLedger()
+    const liveStates = new Map()
+    if (ledger !== null) {
+      for (const [sid, entry] of Object.entries(ledger.sessions)) {
+        if (typeof entry !== 'object' || entry === null) continue
+        const models = new Map()
+        if (typeof entry.models === 'object' && entry.models !== null) {
+          for (const [model, b] of Object.entries(entry.models)) {
+            models.set(model, {
+              uncachedInput: Number(b.uncachedInput) || 0,
+              output: Number(b.output) || 0,
+              cacheRead: Number(b.cacheRead) || 0,
+              cacheWrite: Number(b.cacheWrite) || 0,
+            })
           }
         }
-      } catch (err) {
-        // 首次无文件/损坏：保持空缓存
+        liveStates.set(sid, {
+          models,
+          lastModel: typeof entry.lastModel === 'string' ? entry.lastModel : null,
+          lastProvider: typeof entry.lastProvider === 'string' ? entry.lastProvider : null,
+          lastUsage: typeof entry.lastUsage === 'object' && entry.lastUsage !== null ? entry.lastUsage : null,
+          baseApplied: entry.baseApplied === true,
+        })
       }
     }
-    // 折叠（修订 18）：全量 readSession + 分块让出事件循环（大会话不堵其他 RPC）
-    const refold = async (sessionId) => {
-      if (folding.has(sessionId)) return folding.get(sessionId)
-      const promise = (async () => {
+    // 订阅会话事件实时流（追加进账本状态）
+    try {
+      ctx.effect(() => ctx.on('session/event', (session, event) => {
         try {
-          const query = ctx.get('sessionQuery')
-          if (query === undefined) return null
-          const t0 = Date.now()
-          const snapshot = await query.readSession(sessionId)
-          const t1 = Date.now()
-          if (snapshot === undefined || snapshot.events === undefined) return null
-          const state = fresh()
-          const events = snapshot.events
-          for (let i = 0; i < events.length; i++) {
-            foldEvent(state, events[i])
-            if (i % FOLD_CHUNK === FOLD_CHUNK - 1) {
-              await new Promise((resolve) => ctx.timeout(resolve, 0))
-            }
+          const sid = session && typeof session.id === 'string' ? session.id : null
+          if (sid === null) return
+          const st = liveStateOf(sid)
+          // 修订 26/27：实时会话补渠道+模型（request/context 仅变更追加）
+          const route = currentRouteOf(session)
+          if (route !== null && (st.lastModel === null || st.lastModel === '?')) {
+            st.lastModel = route.model
+            if (route.provider !== null) st.lastProvider = route.provider
           }
-          const result = estimateOf(state)
-          const t2 = Date.now()
-          console.error('[dsh-bottom-bar] refold ' + String(sessionId).slice(0, 8) + ': readSession=' + (t1 - t0) + 'ms fold=' + (t2 - t1) + 'ms events=' + events.length)
-          await estimateSet(sessionId, result)
-          return result
-        } catch (err) {
-          console.error('cost-estimate failed:', err)
-          return null
-        } finally {
-          folding.delete(sessionId)
+          foldEvent(st, event)
+          persistSession(sid)
+        } catch (err) { /* 单事件失败不影响订阅 */ }
+      }), 'dsh-bottom-bar: session/event')
+    } catch (err) { console.error('dsh-bottom-bar: session/event subscribe failed', err) }
+    // 官方持久化检查点：同步落盘（parallel 模式：调用方 await 所有监听器）
+    try {
+      ctx.effect(() => ctx.on('session/flush', async (session) => {
+        try {
+          const sid = session && typeof session.id === 'string' ? session.id : null
+          if (sid === null) return
+          if (liveStates.has(sid)) {
+            persistSession(sid)
+            await writeLedger()
+          }
+        } catch (err) { /* 落盘失败不影响 flush */ }
+      }), 'dsh-bottom-bar: session/flush')
+    } catch (err) { console.error('dsh-bottom-bar: session/flush subscribe failed', err) }
+    // 60s 兜底落盘（idle 会话）
+    try {
+      ctx.effect(() => ctx.interval(() => {
+        if (dirtySessions.size === 0) return
+        writeLedger()
+        dirtySessions.clear()
+      }, 60000), 'dsh-bottom-bar: ledger interval')
+    } catch (err) { /* ignore */ }
+    const liveStateOf = (sessionId) => {
+      let st = liveStates.get(sessionId)
+      if (st === undefined) {
+        st = fresh()
+        st.baseApplied = false
+        liveStates.set(sessionId, st)
+        if (liveStates.size > 100) {
+          const oldest = liveStates.keys().next().value
+          liveStates.delete(oldest)
         }
-      })()
-      folding.set(sessionId, promise)
-      return promise
+      }
+      return st
     }
-    const kickRefold = (sessionId) => {
-      refold(sessionId).catch(() => {})
+    // 投影历史引导（仅首次建账用一次）：coldSnapshot → tokenUsage 总量
+    const projectionTotals = async (sessionId) => {
+      try {
+        const svc = ctx.get('sessionProjectionCache')
+        if (svc === undefined) return null
+        const snap = await svc.coldSnapshot(sessionId)
+        if (snap === null || snap === undefined) return null
+        const u = (snap.data && snap.data.tokenUsage) || snap.tokenUsage
+        if (typeof u !== 'object' || u === null) return null
+        const cacheRead = typeof u.cacheReadTokens === 'number' ? u.cacheReadTokens : 0
+        const cacheWrite = typeof u.cacheWriteTokens === 'number' ? u.cacheWriteTokens : 0
+        const input = typeof u.inputTokens === 'number' ? u.inputTokens : 0
+        const uncached = typeof u.uncachedInputTokens === 'number' ? u.uncachedInputTokens : Math.max(0, input - cacheRead - cacheWrite)
+        const output = typeof u.outputTokens === 'number' ? u.outputTokens : 0
+        return { uncachedInput: uncached, output, cacheRead, cacheWrite }
+      } catch (err) { return null }
     }
-
+    const fallbackRoute = () => {
+      try {
+        const svc = ctx.get('agentDefaultModel')
+        const sel = svc === undefined ? undefined : svc.currentSelection()
+        if (sel && typeof sel.model === 'string') {
+          return { provider: typeof sel.provider === 'string' && sel.provider.length > 0 ? sel.provider : null, model: sel.model }
+        }
+      } catch (err) { /* ignore */ }
+      return { provider: null, model: '?' }
+    }
+    // 首次建账：把「投影总量 − 实时累计」并入为历史基线（只做一次）
+    const applyBaseOnce = async (sessionId, state) => {
+      if (state.baseApplied) return
+      state.baseApplied = true
+      const proj = await projectionTotals(sessionId)
+      if (proj === null) return
+      const liveSum = { uncachedInput: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+      for (const b of state.models.values()) {
+        liveSum.uncachedInput += b.uncachedInput
+        liveSum.output += b.output
+        liveSum.cacheRead += b.cacheRead
+        liveSum.cacheWrite += b.cacheWrite
+      }
+      const history = {
+        uncachedInput: Math.max(0, proj.uncachedInput - liveSum.uncachedInput),
+        output: Math.max(0, proj.output - liveSum.output),
+        cacheRead: Math.max(0, proj.cacheRead - liveSum.cacheRead),
+        cacheWrite: Math.max(0, proj.cacheWrite - liveSum.cacheWrite),
+      }
+      const hasHistory = history.uncachedInput + history.output + history.cacheRead + history.cacheWrite > 0
+      if (!hasHistory) return
+      const route = state.lastModel !== null ? { provider: state.lastProvider, model: state.lastModel } : fallbackRoute()
+      const key = rowKeyOf(route.provider, route.model)
+      const row = state.models.get(key)
+      if (row === undefined) {
+        state.models.set(key, { ...history })
+      } else {
+        state.models.set(key, {
+          uncachedInput: row.uncachedInput + history.uncachedInput,
+          output: row.output + history.output,
+          cacheRead: row.cacheRead + history.cacheRead,
+          cacheWrite: row.cacheWrite + history.cacheWrite,
+        })
+      }
+      persistSession(sessionId)
+    }
     harness.handle('estimate-cost', async (args) => {
       const sessionId = args === null || args === undefined ? undefined : args.sessionId
-      if (typeof sessionId !== 'string') {
-        return { totals: {}, priced: [], unpriced: [], hasUsage: false, lastSample: null }
-      }
-      const now = Date.now()
-      // 1) 内存缓存（流式期间主要命中；TTL 30s）
-      const mem = estimateMem.get(sessionId)
-      if (mem !== undefined && now - mem.foldedAt <= ESTIMATE_MEM_TTL) return mem.result
-      // 2) 磁盘缓存（30min TTL）：秒回 + 后台异步重折（stale-while-revalidate）
-      if (diskEntries === null) await loadDiskCache()
-      const disk = diskEntries[sessionId]
-      if (disk !== undefined && disk !== null && now - disk.foldedAt <= ESTIMATE_DISK_TTL) {
-        estimateMem.set(sessionId, disk)
-        kickRefold(sessionId)
-        return disk.result
-      }
-      // 3) 无缓存：同步重折（分块让出，不堵事件循环）
-      const result = await refold(sessionId)
-      if (result === null) {
-        return { totals: {}, priced: [], unpriced: [], hasUsage: false, lastSample: null }
-      }
-      return result
-    })
-    const maybeWriteDisk = async (now) => {
-      if (!diskDirty || estimateFile === null) return
-      if (now - lastDiskWrite < 30000) return
-      const fsSvc = ctx.get('fs')
-      if (fsSvc === undefined) return
+      if (typeof sessionId !== 'string') return { totals: {}, priced: [], unpriced: [], hasUsage: false, lastSample: null }
       try {
-        const target = await fsSvc.resolve(estimateFile)
-        await fsSvc.writeText(target, JSON.stringify({
-          version: 1,
-          updatedAt: new Date(now).toISOString(),
-          entries: diskEntries,
-        }, null, 2))
-        lastDiskWrite = now
-        diskDirty = false
+        await loadConfig()
+        const st = liveStateOf(sessionId)
+        // 修订 26/27：实时会话取渠道+模型 + 愈合历史归因
+        try {
+          const sessionsSvc = ctx.get('sessions')
+          const live = sessionsSvc === undefined ? undefined : sessionsSvc.get(sessionId)
+          const route = currentRouteOf(live)
+          if (route !== null) healAttribution(st, route.provider, route.model)
+        } catch (err) { /* ignore */ }
+        await applyBaseOnce(sessionId, st)
+        return estimateOf(st)
       } catch (err) {
-        console.error('estimate disk cache write failed:', err)
+        console.error('cost-estimate failed:', err)
+        return { totals: {}, priced: [], unpriced: [], hasUsage: false, lastSample: null }
       }
-    }
-    const estimateSet = async (sessionId, result) => {
-      const now = Date.now()
-      const entry = { result, foldedAt: now }
-      estimateMem.set(sessionId, entry)
-      if (diskEntries === null) diskEntries = {}
-      diskEntries[sessionId] = entry
-      diskDirty = true
-      // 上限 200 条，删最旧
-      const keys = Object.keys(diskEntries)
-      if (keys.length > 200) {
-        let oldestKey = keys[0]
-        let oldestAt = diskEntries[oldestKey].foldedAt
-        for (const key of keys) {
-          const at = diskEntries[key].foldedAt
-          if (at < oldestAt) {
-            oldestAt = at
-            oldestKey = key
+    })
+    // 修订 22：诊断（fs 沙箱真相 + 写入探测记录）
+    harness.handle('diagnostics', async () => {
+      const sb = ctx.get('sandboxPolicy')
+      let resolved = null
+      if (sb !== undefined) {
+        try {
+          const r = sb.resolve()
+          resolved = {
+            mode: r !== null && r !== undefined && typeof r.mode === 'string' ? r.mode : null,
+            workspaceRoot: r !== null && r !== undefined && typeof r.workspaceRoot === 'string' ? r.workspaceRoot : null,
           }
-        }
-        delete diskEntries[oldestKey]
-        estimateMem.delete(oldestKey)
+        } catch (err) { resolved = { error: String(err && err.message || err) } }
       }
-      await maybeWriteDisk(now)
-    }
-    // 折叠（修订 18）：全量 readSession + 分块让出事件循环（大会话不堵其他 RPC）
-
-    // ── 组装配置 + 价格：持久化到 settings 文档同目录的 JSON（version 4） ──
+      return {
+        fs: fsAvailability,
+        sandbox: { defaultMode: sandboxDefaultMode, workspaceRoot, resolved },
+        storeDir,
+        ledgerSessions: ledger === null ? 0 : Object.keys(ledger.sessions).length,
+        attempts: storeAttempts.slice(),
+      }
+    })
+    // ── 组装配置 + 价格：持久化（工作区写入，兼容读 ~/.dsh） ──
     const SEGMENT_IDS = ['counts', 'llm', 'toolCall', 'ttft', 'throughput', 'cacheHit', 'tokens', 'cost']
     const MODES = ['separate', 'combined']
     const DEFAULT_MODE = 'separate'
@@ -311,51 +513,28 @@ return {
     let precisionMode = null
     let configPrices = null
     let compositionPersisted = false
-    let configFile = null
+    let legacyConfigFile = null
     const settingsSvc = ctx.get('settings')
     if (settingsSvc !== undefined) {
       try {
         const doc = await settingsSvc.prepareDocument()
         if (typeof doc === 'string' && doc.length > 0) {
-          configFile = doc.replace(/[\\/][^\\/]*$/, '') + '/cost-estimate.composition.json'
-          estimateFile = doc.replace(/[\\/][^\\/]*$/, '') + '/cost-estimate.estimates.json'
+          legacyConfigFile = doc.replace(/[\\/][^\\/]*$/, '') + '/cost-estimate.composition.json'
         }
-      } catch (err) {
-        console.error('composition config path failed:', err)
-      }
+      } catch (err) { /* ignore */ }
     }
-    const normalizeSegments = (raw) => {
-      if (!Array.isArray(raw)) return null
-      const seen = new Set()
-      const out = []
-      for (const item of raw) {
-        if (typeof item !== 'object' || item === null) continue
-        const id = item.id
-        if (SEGMENT_IDS.indexOf(id) === -1 || seen.has(id)) continue
-        seen.add(id)
-        let enabled = item.enabled
-        if (typeof enabled !== 'boolean') {
-          enabled = item.placement !== 'off'
-        }
-        out.push({ id, enabled })
-      }
-      for (const id of SEGMENT_IDS) {
-        if (!seen.has(id)) {
-          seen.add(id)
-          out.push({ id, enabled: true })
-        }
-      }
-      return out
+    const bucketNum = (v) => {
+      if (v === null || v === undefined || v === '') return undefined
+      const n = Number(v)
+      return Number.isFinite(n) ? n : undefined
     }
-    // null（线上缺省桶编码）与 undefined（内部缺省）统一处理
-    const bucketNum = (v) => (v === undefined || v === null ? undefined : Number(v) || 0)
-    const normalizePrices = (raw) => {
-      if (typeof raw !== 'object' || raw === null) return {}
+    const normalizePrices = (input) => {
+      if (typeof input !== 'object' || input === null) return {}
       const out = {}
-      for (const key of Object.keys(raw)) {
-        const p = raw[key]
+      for (const model of Object.keys(input)) {
+        const p = input[model]
         if (typeof p !== 'object' || p === null) continue
-        out[key] = {
+        out[model] = {
           currency: p.currency === 'CNY' ? 'CNY' : 'USD',
           in: Number(p.in) || 0,
           cacheRead: bucketNum(p.cacheRead),
@@ -365,29 +544,49 @@ return {
       }
       return out
     }
+    const normalizeSegments = (input) => {
+      if (!Array.isArray(input) || input.length === 0) return null
+      const out = []
+      for (const item of input) {
+        if (typeof item !== 'object' || item === null) continue
+        if (SEGMENT_IDS.indexOf(item.id) === -1) continue
+        out.push({ id: item.id, enabled: item.enabled !== false })
+      }
+      if (out.length === 0) return null
+      return out
+    }
+    const readConfigFrom = async (path) => {
+      if (path === null) return null
+      const fsSvc = ctx.get('fs')
+      if (fsSvc === undefined) return null
+      try {
+        const target = await fsSvc.resolve(path)
+        const info = await fsSvc.stat(target)
+        if (info === undefined) return null
+        const text = await fsSvc.readText(target)
+        const parsed = JSON.parse(text)
+        const normalized = normalizeSegments(parsed.segments)
+        if (normalized === null) return null
+        return {
+          segments: normalized,
+          mode: MODES.indexOf(parsed.mode) !== -1 ? parsed.mode : DEFAULT_MODE,
+          tooltip: parsed.tooltip === 'always' ? 'always' : 'auto',
+          precision: parsed.precision === 'full' ? 'full' : 'compact',
+          prices: normalizePrices(parsed.prices),
+        }
+      } catch (err) { return null }
+    }
     const loadConfig = async () => {
       if (compositionCache !== null) return
-      if (configFile !== null) {
-        const fsSvc = ctx.get('fs')
-        if (fsSvc !== undefined) {
-          try {
-            const target = await fsSvc.resolve(configFile)
-            const info = await fsSvc.stat(target)
-            if (info !== undefined) {
-              const text = await fsSvc.readText(target)
-              const parsed = JSON.parse(text)
-              const normalized = normalizeSegments(parsed.segments)
-              if (normalized !== null) compositionCache = normalized
-              compositionMode = MODES.indexOf(parsed.mode) !== -1 ? parsed.mode : DEFAULT_MODE
-              tooltipMode = parsed.tooltip === 'always' ? 'always' : 'auto'
-              precisionMode = parsed.precision === 'full' ? 'full' : 'compact'
-              configPrices = normalizePrices(parsed.prices)
-              compositionPersisted = true
-            }
-          } catch (err) {
-            console.error('composition load failed:', err)
-          }
-        }
+      const fromWorkspace = await readConfigFrom(configFile)
+      const loaded = fromWorkspace !== null ? fromWorkspace : await readConfigFrom(legacyConfigFile)
+      if (loaded !== null) {
+        compositionCache = loaded.segments
+        compositionMode = loaded.mode
+        tooltipMode = loaded.tooltip
+        precisionMode = loaded.precision
+        configPrices = loaded.prices
+        compositionPersisted = true
       }
       if (compositionCache === null) compositionCache = DEFAULT_COMPOSITION
       if (compositionMode === null) compositionMode = DEFAULT_MODE
@@ -402,33 +601,19 @@ return {
       if (precision !== undefined) precisionMode = precision === 'full' ? 'full' : 'compact'
       if (prices !== undefined) configPrices = prices
       if (configFile === null) return false
-      const fsSvc = ctx.get('fs')
-      if (fsSvc === undefined) return false
-      try {
-        const target = await fsSvc.resolve(configFile)
-        await fsSvc.writeText(target, JSON.stringify({
-          version: 4,
-          updatedAt: new Date().toISOString(),
-          mode: compositionMode,
-          tooltip: tooltipMode,
-          precision: precisionMode,
-          segments: compositionCache,
-          prices: configPrices,
-        }, null, 2))
-        compositionPersisted = true
-        return true
-      } catch (err) {
-        console.error('composition save failed:', err)
-        return false
-      }
+      const ok = await writeStoreFile('composition.json', JSON.stringify({
+        version: 4,
+        updatedAt: new Date().toISOString(),
+        mode: compositionMode,
+        tooltip: tooltipMode,
+        precision: precisionMode,
+        segments: compositionCache,
+        prices: configPrices,
+      }, null, 2))
+      if (ok) compositionPersisted = true
+      return ok
     }
-    const snapshot = () => ({
-      segments: compositionCache,
-      mode: compositionMode,
-      tooltip: tooltipMode,
-      precision: precisionMode,
-      persisted: compositionPersisted,
-    })
+    const snapshot = () => ({ segments: compositionCache, mode: compositionMode, tooltip: tooltipMode, precision: precisionMode, persisted: compositionPersisted })
     const priceList = () => {
       const map = {}
       for (const key of Object.keys(DEFAULT_PRICES)) map[key] = true
@@ -443,7 +628,6 @@ return {
           model,
           currency: p.currency || 'USD',
           in: p.in,
-          // ⚠️ 线上用 null 编码『无此桶』（undefined 不是合法 JSON）
           cacheRead: p.cacheRead === undefined ? null : p.cacheRead,
           cacheWrite: p.cacheWrite === undefined ? null : p.cacheWrite,
           out: p.out,
@@ -452,21 +636,12 @@ return {
       }
       return rows
     }
-    harness.handle('get-composition', async () => {
-      await loadConfig()
-      return snapshot()
-    })
+    harness.handle('get-composition', async () => { await loadConfig(); return snapshot() })
     harness.handle('set-composition', async (args) => {
       await loadConfig()
       const a = args === null || args === undefined ? {} : args
       const normalized = normalizeSegments(a.segments)
-      await saveConfig(
-        normalized !== null ? normalized : undefined,
-        a.mode,
-        a.tooltip,
-        a.precision,
-        undefined,
-      )
+      await saveConfig(normalized !== null ? normalized : undefined, a.mode, a.tooltip, a.precision, undefined)
       return snapshot()
     })
     harness.handle('reset-composition', async () => {

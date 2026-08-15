@@ -348,3 +348,26 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - 服务必须 `inject: [...]` 声明 + **`ctx.<名>` 访问**（guard 门控未声明属性）。
 - 生成器曾把 `ctx.slots.`/`ctx.locale.` 改写为自由变量 `slots.`/`locale.` → 必炸 `ReferenceError: locale is not defined`（修法：不改写，inject 补 `['timer','locale','slots']`）。
 - 附带坑：激活流程里重复发起 run 会撞 host runner 的 `starting` 表（"already starting"）——一个 run 在等客户端审批时，别再发新 run；页面 F5 可重置页面侧 runner，Host 侧卡死需 stop 或重建插件。
+
+## 27. 增量计费取代全量折叠（修订 19/20，2026-08-15）
+- 订阅 host `'session/event'`（post-commit 实时追加流，带 Session）→ 每事件 O(1) 增量维护每会话用量，永不 readSession（本会话 130 万事件全量折叠 readSession 39s + fold 9.6s，已不可行）。
+- 历史用量用 `sessionProjectionCache.coldSnapshot(id)` 的 tokenUsage 投影总量补足（归因最后已知模型，近似；只做一次，baseApplied 标记）。
+- **自研持久化账本**（用户设计：缓存到某一层后只管追加）：累计状态持久化 `<workspaceRoot>/.dsh-bottom-bar/ledger.json`——首次建账用投影总量做初始基线，之后每次事件追加，`'session/flush'`（parallel 检查点，调用方 await 所有监听器）同步落盘 + 60s 兜底；重启从账本恢复继续追加，永不全量重算。
+
+## 28. 沙箱 workspaceRoot ≠ 会话工作区（诊断先行，2026-08-15）
+- 动态 Host 的 fs 是会话沙箱（workspace-write）：写 `~/.dsh` 被拒（FS_SANDBOX_DENIED），**可写根 = `sandboxPolicy.workspaceRoot`（实测是 telegram-saver，不是当前会话工作区）+ /tmp + os.tmpdir()**。
+- 排查教训：账本"写不进去"查了 4 个位置（会话工作区/~/.dsh/TEMP/npx 检出）全无，其实是**写入一直成功、位置在别的目录**。先在插件里加 `diagnostics` handler（fs 可用性 + defaultMode/workspaceRoot/resolve + 逐策略写入探测的错误码/消息），设置页底部显示，一眼定位。
+- fs 服务没有 mkdir：`writeText` 对已存在父目录才稳（实测该后端写新目录也能成功，但别依赖）；启动时 stat 探测 `.dsh-bottom-bar`，不存在则直接写根目录 + 失败多级降级（默认策略 → 显式 workspace-write → 显式 danger-full-access）。
+
+## 29. request/context 仅"变更时"追加 + session.contextFold（修订 26）
+- `request/context` 事件只在 provider/model/contextWindow **变化时**才 append（agent-loop 源码实测）——插件订阅事件流时第一条早已过去 → 靠事件流取模型必为 null → 用量全挂 "?" 无官方价。
+- 正确姿势：实时 Session 的 `contextFold` 是**懒折叠 getter**（内部按 foldSeq 增量折叠，含 `{provider, model, contextWindow}`）——`sessions.get(id).contextFold.model` 随时读到当前模型，O(1) 增量。
+
+## 30. 归因键 = 渠道@模型（修订 27，用户提点）
+- 同一模型 id 经不同渠道（如 opencode-go / opencode 免费渠道）价格可能不同，**不能单看模型 id**：`request/context` 自带 provider，归因键升级为 `渠道@模型`（如 `opencode-go@deepseek-v4-flash`）。
+- 价格仍按模型 id 查（先试完整键，支持未来按渠道覆盖）；历史裸模型行与 "?" 行在 healAttribution 中幂等迁移到渠道名下（账本就地愈合，下次落盘生效）。
+
+## 31. 动态 define 的 payload 与往返同步（2026-08-15）
+- `cordis_define` 的包是不可变完整快照：每个新版本必须携带**整份** host+client（~40-50KB），没有补丁式 API。体感"每次定义很久" = 模型重新生成整份源码 + 传输 + 预检；缩短办法：小改动攒批合并成一次 define、删动态副本的长注释头（完整注释留在 lib/ 源文件）、长期靠静态包（装一次自动生效）。
+- **往返同步法**：把运行中的动态代码写为 `dynamic/_client-ref.js` → 反向脚本 `scripts/dynamic-to-static.cjs` 变回静态 `lib/client.js`（styles→insertCss、host.call→remote.*、补 ModuleLoader 脚手架，头部自动追加修订注释）→ 正向生成器重建 `dynamic/client.js` → 归一化 diff（去头、缩进对齐、滤空白行）验证 807/807 行一致。生成器 WIRES 表要同步新 RPC（diagnostics）。
+- 生成器遗留：字符串 replace 会留下纯空白残留行（无害）；对比时 PowerShell 必须 `-Encoding UTF8` 读文件，否则中文按 GBK 乱码。

@@ -51,6 +51,7 @@ const WIRES = {
   setPrice: 'set-price',
   removePrice: 'remove-price',
   resetPrices: 'reset-prices',
+  diagnostics: 'diagnostics',
 }
 body = body.replace(/remote\.(\w+)\(([^)]*)\)/g, (m, name, args) => {
   const wire = WIRES[name]
