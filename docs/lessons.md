@@ -440,3 +440,9 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
   - `--dsw-alias-bg-overlay`：浅 `rgba(44,39,32,.08)` / 深 `rgba(255,255,255,.08)` —— **8% alpha 遮罩层**，当弹层背景就是透明！
 - **修法**：回到官方配对 `background:var(--dsw-alias-tooltip-bg); color:var(--dsw-static-neutral-bluish-00)`（分隔线/滚动条恢复白半透明），背景再加 `rgba(24,24,27,.95)` 兜底（防主题删别名）。
 - **教训**：① Inspect 的 Theme 注册表只描述 token 意图（「Overlay and popover background」），主题作者实际实现要读主题自己的 CSS——`node_modules/<theme>/lib/theme.css` 才是真身；② `*-overlay` 系 token 是半透明遮罩，不是面板表面色，**弹层/面板用 `tooltip-bg`**；③ 「跟随官方」= 跟随官方组件的配对（tooltip-bg + 静态白字），不是跟随注册表描述；④ 用户报告「变黑/变透明」这类**前后矛盾**的症状时，先怀疑自己的改动方向，直接查运行包源码，别继续在 token 名字上推理。
+
+## 43. 纯黑弹层在亮色模式突兀 → 浮层底要「实心自适应表面」（修订 44，2026-08-15）
+- **症状**：tooltip-bg 配对（深底白字）修好后，用户说「亮色模式下看会感觉有点怪怪的」——主题里 tooltip-bg 明暗恒深，亮色模式下弹出一个纯黑方块确实突兀（Claude 主题作者故意保留官方黑条设计，但用户不买账）。
+- **查主题真身**（dsh-claude-theme/theme.css）：能当**实心浮层底**的自适应 token 是 `--dsw-alias-bg-layer-2`（浅 `#FCFBF9` 暖白 / 深 `#242421`，主题自己的卡片 line 249/297 就在用）；`--dsw-alias-interactive-bg-hover` 也是 alpha 色（浅 `rgba(44,39,32,.05)` / 深 `rgba(255,255,255,.06)`），页面内嵌看着正常，**浮层叠在内容上会透**——设置页那张卡能用它是因为它嵌在设置页表面之上，不是悬浮。
+- **修法**：弹层/黑条/预览气泡 → `background:var(--dsw-alias-bg-layer-2)` + `color:var(--dsw-alias-label-primary)` + `border:1px solid var(--dsw-alias-border-l2)`（分隔线/滚动条同 border-l2），黑条加轻阴影。浅色=暖白卡深字、深色=深卡浅字，两模式都自然。
+- **教训**：悬浮浮层（fixed 定位、盖在内容上）的背景必须用**实心** token；判断实心与否直接看主题 CSS 的值（hex=实心，rgba+低 alpha=遮罩/悬停色）。「自适应表面」首选 bg-layer-2（主题自己的卡片契约），比 tooltip-bg（恒深）更贴合亮色模式审美。
