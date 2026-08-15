@@ -1,79 +1,84 @@
 # dsh-bottom-bar
 
-DSH 底栏统计行插件（可组装 + 预估费用）：接管 `conversation.composer.dock` 的 stats cell，把官方统计行换成可配置的组装行，并在末尾追加**预估费用**标注（按模型 id 匹配价格表，支持 USD/CNY 多币种）。
+嗯……简单说,这就是那个「底栏统计 + 预估费用」插件。
+
+你在 DSH 聊天界面最底下看到的那一行统计(轮数 / 时长 / 吞吐 / token / 费用那些),本来官方有一行,但太素了,咱把它接管过来,换成了**能自己组装**的版本——8 个统计段,想显示啥显示啥,还能拖拽排序,末尾缀一个**预估费用**,花钱心里有数。
+
+(对,截图是早期版本的,现在好看多了,懒得换图,意思到了就行。)
 
 <img width="500" alt="QQ_1786701111767" src="https://github.com/user-attachments/assets/92e20843-573f-4085-8853-c25aa44e3137" />
 <img width="500" alt="image" src="https://github.com/user-attachments/assets/93508b29-bbff-4a71-94f6-7cdb4e497ad5" />
 
-## ✅ 当前状态（2026-08-15）
+## 现在到哪一步了(2026-08-15 版)
 
-**静态固化包已修复并通过干净环境真实 boot 验证**（`dsh --profile web` 独立 `$DSH_HOME` + 独立端口，HTTP 200 正常服务；旧硬伤 `service "bottomBar" has been registered` 已消除）。两种形态：
+已经迭代到 **修订 71** 了,一路从「能跑」干到「好看」:
 
-- **静态包（推荐，写进 DSH 配置后自动加载）**：`lib/` + typert 产物 + bundle patch（见下方「安装」）。Host 为官方类插件模式（`TypertRemoteService` default export），客户端在 apply 里运行时 `$mount` 自己的 Remote contribution（预构建的 dsh-api-remotes 不含本包，必须自挂载）。
-- **动态插件**（历史形态）：会话内 `code.host` / `code.client` 运行（见 [dynamic/README.md](dynamic/README.md)），DSH 重启后需重跑。
+- ✅ **静态包**是正式形态:写进 DSH 配置后自动加载,重启不丢(你现在装的就是它)
+- ✅ **账本持久化**:用量只追加、永不重算,重启从账本恢复接着记
+- ✅ **主题跟随**:弹层、光效、高亮全走官方 token,切什么主题自动变色,绝不写死
+- ✅ **速度**:底栏 1s 心跳、设置面板 1s 刷新、弹层秒出
+- ⏸️ 动态插件是历史形态(会话里跑的),除非调试否则别碰——**两个实例同时写一个账本会打架**
 
-功能（两形态一致）：增量计费（`session/event` 实时流 O(1) 追加）+ **自研持久化账本**（官方 `~/.dsh/cost-estimate.ledger.json`：投影基线 → 事件追加 → `session/flush` 落盘 → 重启恢复，永不全量重算）+ **持续对账**（客户端捎带全量用量 → 实时投影 → 冷快照，自动追平）+ **渠道/模型归因**（如 `opencode-go/deepseek-v4-flash`）+ **设置页「客户端全量（权威源）」面板**（四桶/命中率/费用拆分，每 3s 刷新）+ 诊断通道。
+## 它能干点啥(人话版)
 
-## 安装（静态包）
+**底栏那行字:**
 
-把本仓库作为 **profile bundle** 写入 DSH 配置（与 dsh-base / dsh-web-app 同一机制）：
+- 8 个统计段:轮/步、LLM 时长、工具调用时长、首 token 平均、吞吐 tok/s、缓存命中、输入/输出 token、**预估费用**
+- 每段可开关、可拖拽排序;按住 **Ctrl 点选**还能批量多选,整批拖走(有悬浮条提示,全选/反选/取消都安排上了)
+- 行太长被截断?悬停出黑条看完整行(可设「始终显示」)
+- 点任意分段 → 弹出**明细面板**:费用段是逐模型的单价 / 各桶 token / 金额 / 小计 / 总计,其他段是原始数值
 
-1. 安装依赖：在目标 profile 目录（如 `$DSH_HOME/profiles/web`）执行 `pnpm add <本仓库路径>`（或手动把仓库放进 profile 的 node_modules）。
-2. 编辑该 profile 的 `package.json`，把 `"dsh-bottom-bar"` 追加进 `dsh.profile.bundles` 数组：
+**设置 → 底栏(设置页那个区块):**
+
+- **预览区**:改配置的同时实时看效果;悬停还能「预演」未启用的段插进去长啥样,不点不生效
+- **价格表**:内置 DeepSeek V4/V3、Claude、OpenAI、Gemini、Kimi、通义等**厂商模板**,新增模型只填输入价,其余按模板自动派生;也支持手动填每个桶(币种可换、缓存桶可留空)
+- 配置有 **localStorage 水合**——手动刷新网页不会闪回默认值
+- 底部「客户端全量 · 权威源」卡片:当前会话四桶用量 + 命中率 + 费用拆分,1s 实时刷新
+
+**钱和账:**
+
+- 用量按「渠道@模型」记账(比如 `opencode-go/deepseek-v4-flash`),同一模型走不同渠道分开算,不吃亏
+- 账本落盘在 `~/.dsh/cost-estimate.ledger.json`,**只追加、永不重算**;客户端捎带全量用量持续对账,明细面板和底栏永远一致
+- 流式输出时费用实时跳,零等待
+
+## 安装(静态包,三步,别慌)
+
+1. 进 profile 目录(如 `$DSH_HOME/profiles/web`),执行 `pnpm add <本仓库路径>`。
+   ⚠️ 路径带空格的话 pnpm 会给你造个坏的 junction——直接手动 `New-Item -ItemType Junction` 指回仓库,别在 pnpm 上死磕。
+2. 打开该 profile 的 `package.json`,把 `"dsh-bottom-bar"` 塞进 `dsh.profile.bundles` 数组:
 
    ```json
    "dsh": { "profile": { "bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-bottom-bar"] } }
    ```
 
-3. 重启 `dsh --profile web`。插件行由 bundle patch（`cordis.patch.yml` 的 `- insert:`）自动插入；host face 由 `dsh-typert-loader` 在挂载时自动 import `./typert` 并 contribute；客户端自 `$mount` 后底栏与设置页即可用。
+3. 用你平时的启动方式重启,比如 `npx -y @deepseek-ai/dsh web`(就是 127.0.0.1:3080 那个)。完了,插件行由 bundle patch 自动插入,host face 自动 contribute,客户端自挂载。
 
-> ⚠️ 静态包生效后请勿再跑动态插件，避免两个实例同时写同一账本文件。
+> ⚠️ 浏览器如果还是旧样子,按 **Ctrl+Shift+R 硬刷新**——不是没装上,是缓存记性好。
+> ⚠️ 静态包生效后别再跑动态插件,两个实例写同一个账本会打架。
 
-## 仓库结构
+## 仓库结构(好奇的话)
 
-- `lib/` — 静态固化包源码（**已完成，可安装**：`index.js` host 类插件 + `client.js` 静态客户端（ModuleLoader，同时是动态 client 的生成源）+ `typert.host.js` / `typert.remote-client.js` 产物）
-- `dynamic/` — 动态插件源码（会话内运行形态；`client.js` 由生成器从 lib/client.js 产出，勿手改）
-- `cordis.patch.yml` — profile bundle patch（`- insert:` 插入插件行）
-- `scripts/static-to-dynamic.cjs` — 从 `lib/client.js` 生成 `dynamic/client.js` 的同步工具（注意：`ctx.slots`/`ctx.locale` 不可改写为自由变量，见生成器头注释）
-- `scripts/dynamic-to-static.cjs` — 反向同步：把运行中的动态 client 变回静态 `lib/client.js`（修订注释自动追加），配合正向生成器做**往返一致验证**
-- `docs/lessons.md` — 开发教训 30+ 条（槽位回退、RPC 取消风暴、持久化缓存、树内约束、静态包 boot 坑、动态客户端服务访问、增量账本、沙箱 workspaceRoot、渠道归因等）
+- `lib/` — 静态包本体:`index.js`(host,`TypertRemoteService` 子类)+ `client.js`(客户端,同时是动态版的生成源)+ `typert.host.js` / `typert.remote-client.js`
+- `dynamic/` — 动态插件形态(历史遗留;`client.js` 是生成器产出的,别手改)
+- `cordis.patch.yml` — 往 profile 里插插件行的补丁
+- `scripts/` — `static-to-dynamic.cjs`(lib → dynamic 镜像)、`dynamic-to-static.cjs`(反向回写)、`tokenize-colors.cjs`(把写死的颜色批量换成主题 token,谁再写死色就跑一遍)
+- `docs/lessons.md` — 一路踩坑的教训,40+ 条,写插件前值得一读
 
-## 功能
+## 开发循环(改完代码的正确姿势)
 
-- **8 个统计段**可开关、可拖拽排序（拖动时显示放置指示线，落点 FLIP 动画）：轮/步、LLM 时长、工具调用时长、首 token 平均、吞吐 tok/s、缓存命中、输入/输出 token、**预估费用**
-- **自研持久化账本**（修订 20/28/30-32）：用量按「渠道/模型」增量记账，落盘到官方 `~/.dsh/cost-estimate.ledger.json`（写入带会话 danger 权限 stamp；旧工作区文件只作迁移源）——投影基线 + 事件追加、`session/flush` 同步落盘，**重启恢复继续追加，永不全量重算**；历史归因可自动愈合；**持续对账**（客户端捎带 `useProjection('tokenUsage')` 四桶 → 实时投影 → 冷快照）自动把差额补进账本，明细面板与底栏永远一致
-- **渠道感知**（修订 27/29）：同一模型 id 经不同渠道（如 opencode-go / 免费渠道）分别记账，归因键 = 渠道/模型（旧 @ 分隔自动归一）；价格按模型 id 查（支持未来按渠道覆盖）
-- **费用实时跳动**：流式输出时预估费用随 token 实时增长（折叠底账 + 当前轮投影增量，客户端即时计价，零 RPC 等待）
-- **点击分段弹出明细面板**：费用段显示逐模型单价 / 各桶 tokens / 金额 / 小计 / 总计；其他段显示原始数值
-- **截断黑条**（官方 Tooltip 同款）：行溢出时悬停显示完整行，可设"始终显示"
-- **费用精度**开关（紧凑 / 4 位小数）
-- **价格表**（设置页底部，默认折叠）：内置 DeepSeek 系列；新增模型只填输入价，输出 / 缓存读 / 缓存写按 **5× / 0.1× / 1.25×** 自动派生，可再改；缓存桶可留空（=该模型无此桶，计费回退输入价）
-- **性能**：折叠结果两级缓存（内存 5s + 磁盘 5min 持久化），页面刷新 / 切会话 / 重启后秒出，不反复重算
+改 `lib/client.js` → `node scripts/static-to-dynamic.cjs lib/client.js dynamic/client.js` 同步镜像 → commit → push → 重启 DSH + Ctrl+Shift+R。就这,没了。
 
-## 使用（动态插件形态）
-
-在 DSH 会话里让 agent 把 `dynamic/host.js` 与 `dynamic/client.js` 定义为动态插件（`code.host` / `code.client`）并运行即可；配置与账本持久化在官方 `~/.dsh`（`cost-estimate.composition.json` / `cost-estimate.ledger.json`），会话重启后重跑插件即恢复。
-
-设置 → **底栏**：
-
-- 段开关 / 拖拽排序 / ↑↓ 换序、效果预览（悬停字段高亮）
-- 输入/缓存口径（separate = 纯未命中输入 + 命中 token 数；combined = 官方口径 + 命中率）
-- 黑条行为（auto = 仅截断时显示 / always）、费用精度（compact / full）
-- 价格表（最底部折叠）：增删模型、改价、恢复默认
-
-## 静态固化包（已完成 · 2026-08-15）
-
-已按官方类插件模式重写并验证：`export default BottomBarService extends TypertRemoteService`（Remote 标记 = 方法名，host gateway SRC 发现 + `dsh-typert-loader` 自动 contribute `./typert` FaceModel 双通道路由）；存储改 node:fs/promises 直写官方 `~/.dsh`（主进程无沙箱）；`lib/typert.host.js`（FaceModel）+ `lib/typert.remote-client.js`（TYPERT_REMOTE，客户端自 `$mount`，codec 用透传 schema 免 zod 依赖）+ `cordis.patch.yml`（bundle `- insert:`）。逻辑与动态版同步到修订 36。
+(仓库是 junction 直连的,改完重启就是新代码——这就是「改完马上生效」的真相。)
 
 ## 官方文档参考
 
-- [打包与安装插件](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.zh.md)（组合包 / profile / `dsh plugin` / 层顺序 / tarball 与 git 安装）
-- [插件配置](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/config.zh.md)（patch 行格式、Schema 校验约定）
-- [CLI 行为参考](https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.md)（profile 启动、层优先级、`--dump-config`、插件管理 reconcile 语义）
+- [打包与安装插件](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.zh.md)(组合包 / profile / `dsh plugin` / 层顺序 / tarball 与 git 安装)
+- [插件配置](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/config.zh.md)(patch 行格式、Schema 校验约定)
+- [CLI 行为参考](https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.md)(profile 启动、层优先级、`--dump-config`、插件管理 reconcile 语义)
 
 ## License
 
-MIT © kc0ed。复刻的官方 UI 零件版权归原作者（DeepSeek）所有，归属与上游版本见代码头同步块。
+MIT © kc0ed。复刻的官方 UI 零件版权归原作者(DeepSeek)所有,归属与上游版本见代码头同步块。
 
 ---
 
