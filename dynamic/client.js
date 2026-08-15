@@ -213,7 +213,9 @@ return {
         }
         // ── 底栏（dock stats cell） ──
         ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register(
-          { name: 'conversation.composer.dock', id: 'stats', order: 0 },
+          // 修订 37：priority -1 shadow 官方 StatsLine（官方同 id 'stats' 默认
+          // priority 0；list 槽位同 id 多 entry 时最低 priority 胜出渲染）
+          { name: 'conversation.composer.dock', id: 'stats', order: 0, priority: -1 },
           (props) => {
             const settledNodes = props.useSession((s) => (s !== null && s !== undefined && s.chat !== undefined && s.chat !== null && s.chat.legacy !== undefined && s.chat.legacy !== null && Array.isArray(s.chat.legacy.nodes)) ? s.chat.legacy.nodes : [])
             const usage = props.useProjection('tokenUsage')
