@@ -12,8 +12,8 @@
 // · request/context 事件仅「模型变更时」追加，订阅前可能从未收到 →
 //   lastModel 不能只靠事件流；改用实时会话 session.contextFold（懒折叠
 //   getter，含 provider/model）取当前渠道+模型，并就地愈合历史归因。
-// · 归因键 = 「渠道@模型」（如 opencode-go@deepseek-v4-flash）；价格按
-//   模型 id 查（先试完整键，支持未来按渠道覆盖）。
+// · 归因键 = 「渠道/模型」（如 opencode-go/deepseek-v4-flash）；价格按
+//   模型 id 查（先试完整键，支持未来按渠道覆盖）。旧 @ 键自动迁移。
 // · 账本：首次建账用投影冷快照做基线（baseApplied 一次），之后
 //   session/event 每事件 O(1) 追加，session/flush（parallel 检查点）落盘
 //   + 60s 兜底；重启从账本恢复继续追加，永不全量重算（用户设计）。
@@ -30,16 +30,19 @@ return {
       // deepseek-chat / deepseek-reasoner 已下架（2026-08-14），不再内置
     }
     const fresh = () => ({ models: new Map(), lastModel: null, lastProvider: null, lastUsage: null })
-    // 归因键：渠道@模型（渠道可缺省）。价格按模型 id 查（先查完整键，再查模型部分）
+    // 归因键：渠道/模型（修订 29：分隔符从 @ 改为 /，更符合 provider/model 惯例；
+    // 旧 @ 键自动迁移）。价格按模型 id 查（先查完整键，再查模型部分）。
     const rowKeyOf = (provider, model) => {
       const m = model === null || model === undefined || model === '?' ? '?' : model
       const p = provider === null || provider === undefined || provider === '' || provider === '?' ? null : provider
-      return p === null ? m : p + '@' + m
+      return p === null ? m : p + '/' + m
     }
     const modelPartOf = (key) => {
-      const at = typeof key === 'string' ? key.indexOf('@') : -1
+      if (typeof key !== 'string') return key
+      const at = Math.max(key.lastIndexOf('@'), key.lastIndexOf('/'))
       return at === -1 ? key : key.slice(at + 1)
     }
+    const normalizeKey = (key) => (typeof key === 'string' ? key.split('@').join('/') : key)
     const applyUsage = (state, usage, turn, step) => {
       const rowKey = rowKeyOf(state.lastProvider, state.lastModel)
       const buckets = {
@@ -108,12 +111,21 @@ return {
       } catch (err) { /* ignore */ }
       return null
     }
-    // 修订 26/27：愈合历史归因（"?" 行 + 裸模型行迁到 渠道@模型）
+    // 修订 26/27/29：愈合历史归因（"?" 行 + 裸模型行 + 旧 @ 键统一迁移）
     const healAttribution = (state, provider, model) => {
       if (model === null || model === '?' || model === undefined) return
       const key = rowKeyOf(provider, model)
       if (state.lastModel === null || state.lastModel === '?') state.lastModel = model
       if (state.lastProvider === null || state.lastProvider === '?') state.lastProvider = provider === null ? null : provider
+      // 旧「渠道@模型」键 → 「渠道/模型」
+      for (const k of Array.from(state.models.keys())) {
+        if (typeof k === 'string' && k.indexOf('@') !== -1) {
+          const nk = k.split('@').join('/')
+          const row = state.models.get(k)
+          if (!state.models.has(nk)) state.models.set(nk, row)
+          state.models.delete(k)
+        }
+      }
       const q = state.models.get('?')
       if (q !== undefined) {
         const row = state.models.get(key)
@@ -136,7 +148,9 @@ return {
       }
       if (state.lastUsage !== null) {
         const lu = state.lastUsage
-        if (lu.model === '?' || (lu.model === model && key !== model)) {
+        if (typeof lu.model === 'string' && lu.model.indexOf('@') !== -1) {
+          state.lastUsage = { ...lu, model: lu.model.split('@').join('/') }
+        } else if (lu.model === '?' || (lu.model === model && key !== model)) {
           state.lastUsage = { ...lu, model: key, provider: state.lastUsage.provider === null || state.lastUsage.provider === undefined ? provider : state.lastUsage.provider }
         }
       }
@@ -366,7 +380,8 @@ return {
         const models = new Map()
         if (typeof entry.models === 'object' && entry.models !== null) {
           for (const [model, b] of Object.entries(entry.models)) {
-            models.set(model, {
+            // 修订 29：旧 @ 键加载时归一为 /
+            models.set(normalizeKey(model), {
               uncachedInput: Number(b.uncachedInput) || 0,
               output: Number(b.output) || 0,
               cacheRead: Number(b.cacheRead) || 0,
