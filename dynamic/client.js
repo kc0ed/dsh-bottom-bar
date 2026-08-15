@@ -750,8 +750,9 @@ return {
               const n = Number(v)
               return Number.isFinite(n) ? n : undefined
             }
-            // 修订 34/35：客户端全量面板行样式（内联，紧凑两列）
-            const fullRow = { display: 'flex', justifyContent: 'space-between', gap: 16 }
+            // 修订 34/35：客户端全量面板行样式（内联，紧凑两列；显式 row/nowrap
+            // 防任何环境把 flex 降级成块级竖排）
+            const fullRow = { display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'nowrap', whiteSpace: 'nowrap', lineHeight: 18 }
             const fallbackSegments = loaded ? DEFAULT_COMPOSITION : null
             const effectiveSegments = Array.isArray(segments) ? segments : fallbackSegments
             if (effectiveSegments === null) {
