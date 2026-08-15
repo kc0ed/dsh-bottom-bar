@@ -256,6 +256,7 @@ body[data-ds-dark-theme] .dsh-detail {
   opacity: 0.8;
 }
 .dsh-preview-dock {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -263,7 +264,7 @@ body[data-ds-dark-theme] .dsh-detail {
   box-sizing: border-box;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid var(--dsw-alias-border-l1);
   background: #FFFFFF;
