@@ -446,3 +446,9 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **查主题真身**（dsh-claude-theme/theme.css）：能当**实心浮层底**的自适应 token 是 `--dsw-alias-bg-layer-2`（浅 `#FCFBF9` 暖白 / 深 `#242421`，主题自己的卡片 line 249/297 就在用）；`--dsw-alias-interactive-bg-hover` 也是 alpha 色（浅 `rgba(44,39,32,.05)` / 深 `rgba(255,255,255,.06)`），页面内嵌看着正常，**浮层叠在内容上会透**——设置页那张卡能用它是因为它嵌在设置页表面之上，不是悬浮。
 - **修法**：弹层/黑条/预览气泡 → `background:var(--dsw-alias-bg-layer-2)` + `color:var(--dsw-alias-label-primary)` + `border:1px solid var(--dsw-alias-border-l2)`（分隔线/滚动条同 border-l2），黑条加轻阴影。浅色=暖白卡深字、深色=深卡浅字，两模式都自然。
 - **教训**：悬浮浮层（fixed 定位、盖在内容上）的背景必须用**实心** token；判断实心与否直接看主题 CSS 的值（hex=实心，rgba+低 alpha=遮罩/悬停色）。「自适应表面」首选 bg-layer-2（主题自己的卡片契约），比 tooltip-bg（恒深）更贴合亮色模式审美。
+
+## 44. 设置页整页空白 = settings.section 槽错误边界 + 未定义变量残留（修订 68，2026-08-15）
+- **症状**：用户「快看看底栏/系统-底栏区域」——设置页只剩头部（打开配置文件/关闭按钮），正文 `<div data-slot-error="settings.section">` 空占位。
+- **排查链**：① `Slots.listSubTree`（settings.section）看 occupants：general/models/plugins/agent-presets 全 active，唯独 `cost-estimate` active:false → 我们的区块渲染失败；② 通读设置区块代码，发现 `previewSegs` 被引用但**全文件无定义**——修订 45-67 把旧的 `previewSegs` 数组构建换成 `makeLineChildren()` 时漏改两处引用 → `ReferenceError` → 渲染崩溃 → 槽位错误边界接管整页。
+- **修法**：等价推导 `previewDockTitle`（仅已启用分段的预览文本，旧语义）+ `hasPreviewSegs` 空态判断，替换两处残留引用。
+- **教训**：① 渲染层崩溃会炸掉**整个槽位**（不是只坏自己那条），用户看到的是「设置页空了」而非报错；② 重构删变量后必须 grep 全文件查残留引用；③ Inspect 槽位 occupants 的 `active` 标志是快速定位「哪条没渲染成功」的入口。
