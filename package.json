@@ -1,9 +1,31 @@
 {
   "name": "dsh-bottom-bar",
   "version": "1.0.0",
-  "description": "底栏统计设置（开发中）：可组装的输入框下方统计行 + 预估费用标注 + 设置页（底栏）。⚠️ 静态固化包未完成、不可安装；当前仅动态插件形态可用（见 dynamic/README.md）。",
+  "description": "底栏统计设置：可组装的输入框下方统计行 + 预估费用 + 自研持久化账本（客户端全量对账）+ 设置页（底栏）。",
   "type": "module",
   "main": "lib/index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./typert": {
+      "default": "./lib/typert.host.js"
+    },
+    "./remote": {
+      "default": "./lib/typert.remote-client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/typert.host.js",
+    "lib/typert.remote-client.js"
+  ],
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/dsh-typert-protocol": "0.1.0-rc.6"

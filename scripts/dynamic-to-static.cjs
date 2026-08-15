@@ -109,10 +109,9 @@ const SCAFFOLD = `window.__ModuleLoader__.load({
       tag.textContent = css
     }
 
-    const inject = ['slots', 'remote', 'remote.bottomBar', 'locale', 'timer']
+    const inject = ['slots', 'remote', 'locale', 'timer']
 
-    function apply(ctx) {
-      const remote = ctx.remote.bottomBar
+    async function apply(ctx) {
 `
 const TAIL = `
     }

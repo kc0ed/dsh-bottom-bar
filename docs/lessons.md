@@ -390,3 +390,16 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - 需求：把「客户端全量」（浏览器侧全量折叠，唯一权威源）显示到 **设置 → 底栏** 区块，并顺带做价格统计拓展。
 - 实现：host 在 estimate-cost handler 里缓存客户端捎带的四桶（`lastClientUsage`，带 model/provider/时间戳）→ 新 RPC `get-client-usage` 返回四桶 + 按当前价格表算的费用拆分（inCost/cacheReadCost/cacheWriteCost/outCost/total/currency）；设置页新面板「客户端全量用量（权威源）」每 3s 轮询渲染（四桶 + 缓存命中率 + 分桶费用 + 总计）。
 - 关键点：**零新增数据通路**——全量用量本来就随 estimate-cost 每 1.5s 捎带，host 缓存后设置页只多一个轻量 RPC；生成器 WIRES 表需同步新增 wire（getClientUsage ↔ 'get-client-usage'），否则往返同步会报 unknown wire。
+
+## 35. 客户端全量面板紧凑化（修订 35，2026-08-15）
+- 用户反馈面板"上下间距莫名长"：用了明细面板的 `.dsh-detail-row` 外部类，在设置页环境布局堆叠异常；改为**内联样式**（两列并排 fullRow + 行高 16 + padding 6×8 + 分隔线 margin 2px），完全可控。
+- 顺带：`get-client-usage` 的 model 用 `rowKeyOf(provider, model)` 返回完整渠道键（`opencode-go/deepseek-v4-flash`），与账本归因一致。
+
+## 36. 静态包修复：类插件模式 + SRC 发现 + 客户端自 $mount（2026-08-15）
+- **boot 硬伤根因**：旧版是「对象插件 + apply 内手动 `new BottomBarService` + `ctx.provide('bottomBar', ...)`」——Service 构造里 `super(ctx, 'bottomBar')` 已注册一次，`ctx.provide` 再注册同名 → `service "bottomBar" has been registered`。官方带 Remote 的插件一律 **Service 子类 default export**（`export default class extends TypertRemoteService`，Cordis 实例化时构造即注册），照此重写即消除。
+- **host 路由不需要 FaceModel**：Typert Gateway 支持 **SRC 发现**（`collectSrcClaims`/`resolveSrcDescriptor`：遍历 `ctx.reflect.props` 找 `typertRemote` 绑定 + `remoteMethods` 标记，参数 wire 名 = 方法参数名，codec 全 `src-json`）。但 `dsh-typert-loader` 会在挂载时自动 import 插件的 `./typert` 并 contribute host face（strict 校验：package/face/schemas/model.services|events|objects/invocations 全查，codec 必须 strict + typeSymbol + zod 实例）——用**透传 schema**（`{_zod:{}, parse:(v)=>v}`）免 zod 依赖，contribute 后走 strict descriptor 更正规。
+- **客户端 remote 是构建期内联的**：`dsh-api-remotes` 把官方插件列表的 TYPERT_REMOTE 编译进 client bundle（#region 内联），我们的包不在其 peerDeps → `remote.bottomBar` 不存在。**解法：客户端 apply 里运行时 `ctx.remote.$mount(TYPERT_REMOTE)` 自挂载**（contribution 内联进 lib/client.js；inject 不能含 'remote.bottomBar'（mount 前不存在会死锁），用 `ctx.get('remote.bottomBar')`）。
+- **wire 名必须两端一致**：client 代理方法名 = descriptor.method，endpoint = `namespace/method`；host claim 用 `exportName ?? method` → 全部用**方法名**（旧版短横线别名 'estimate-cost' 作废），否则 endpoint 不匹配 RPC 被拒。
+- **生成器坑**：lib 里 TYPERT_REMOTE 常量若在 factory 顶层，生成后落在动态插件 `return {}` 对象字面量中间（const 声明在对象里 = 语法错误）→ **常量必须放 apply 函数体内**；反向生成器 SCAFFOLD 同步更新（async apply、去掉 `const remote = ctx.remote.bottomBar` 行、inject 去 'remote.bottomBar'）。
+- **profile bundle 配置**：用户层 `cordis.patch.yml` 是 id-targeted（只能覆盖已有条目），**新增插件要走 bundle**：包内 `cordis.patch.yml` 用 `- insert:` 列表 + package.json `"dsh": {"bundle": {"patch": "./cordis.patch.yml"}}`，profile 的 `dsh.profile.bundles` 数组追加包名。验证时 `$DSH_HOME` 指到独立目录 + `--port 0` 干净 boot。
+- 静态包存储改 `node:fs/promises` 直写官方 `~/.dsh`（主进程无会话沙箱，不需要动态版的 danger stamp 链）。

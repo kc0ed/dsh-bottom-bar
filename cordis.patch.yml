@@ -1,0 +1,6 @@
+# dsh-bottom-bar bundle patch: inserts the bottom-bar plugin row over the
+# profile root (same mechanism as dsh-base). Consumed when this package is
+# listed in a profile's dsh.profile.bundles.
+- insert:
+    - id: dsh-bottom-bar
+      name: 'dsh-bottom-bar'

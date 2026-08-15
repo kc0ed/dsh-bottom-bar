@@ -5,18 +5,35 @@ DSH 底栏统计行插件（可组装 + 预估费用）：接管 `conversation.c
 <img width="500" alt="QQ_1786701111767" src="https://github.com/user-attachments/assets/92e20843-573f-4085-8853-c25aa44e3137" />
 <img width="500" alt="image" src="https://github.com/user-attachments/assets/4d349b04-39bd-46ea-a2b3-d1ad982873f8" />
 
-## ⚠️ 当前状态（2026-08-15）
+## ✅ 当前状态（2026-08-15）
 
-**静态固化包（`lib/`）尚未完成，暂不可安装。**
+**静态固化包已修复并通过干净环境真实 boot 验证**（`dsh --profile web` 独立 `$DSH_HOME` + 独立端口，HTTP 200 正常服务；旧硬伤 `service "bottomBar" has been registered` 已消除）。两种形态：
 
-真实启动验证发现硬伤：Host 半体在 loader boot 下报 `service "bottomBar" has been registered`（干净环境可复现、单次 apply 却正常，机制未定位）；且官方 Remote 服务插件需要 `./typert` + `./remote` 产物同步给客户端，本包缺失——即使 boot 修好客户端也无法激活。**按旧版 README 安装会导致 `dsh web` 启动失败（打不开）**，请勿安装。
+- **静态包（推荐，写进 DSH 配置后自动加载）**：`lib/` + typert 产物 + bundle patch（见下方「安装」）。Host 为官方类插件模式（`TypertRemoteService` default export），客户端在 apply 里运行时 `$mount` 自己的 Remote contribution（预构建的 dsh-api-remotes 不含本包，必须自挂载）。
+- **动态插件**（历史形态）：会话内 `code.host` / `code.client` 运行（见 [dynamic/README.md](dynamic/README.md)），DSH 重启后需重跑。
 
-**当前唯一可用形态 = 动态插件**（修订 32）：在 DSH 会话中作为 `code.host` / `code.client` 运行（见 [dynamic/README.md](dynamic/README.md)）。2026-08-15 已迭代至：增量计费（`session/event` 实时流 O(1) 追加）+ **自研持久化账本**（官方 `~/.dsh/cost-estimate.ledger.json`：投影基线 → 事件追加 → `session/flush` 落盘 → 重启恢复，永不全量重算）+ **持续对账**（客户端捎带全量用量 → 实时投影 → 冷快照，自动追平）+ **渠道/模型归因**（如 `opencode-go/deepseek-v4-flash`）+ 诊断通道 + 双击/加载态/闪烁等 UI 修复。静态包修复完成后会更新本文档并恢复安装说明。
+功能（两形态一致）：增量计费（`session/event` 实时流 O(1) 追加）+ **自研持久化账本**（官方 `~/.dsh/cost-estimate.ledger.json`：投影基线 → 事件追加 → `session/flush` 落盘 → 重启恢复，永不全量重算）+ **持续对账**（客户端捎带全量用量 → 实时投影 → 冷快照，自动追平）+ **渠道/模型归因**（如 `opencode-go/deepseek-v4-flash`）+ **设置页「客户端全量（权威源）」面板**（四桶/命中率/费用拆分，每 3s 刷新）+ 诊断通道。
+
+## 安装（静态包）
+
+把本仓库作为 **profile bundle** 写入 DSH 配置（与 dsh-base / dsh-web-app 同一机制）：
+
+1. 安装依赖：在目标 profile 目录（如 `$DSH_HOME/profiles/web`）执行 `pnpm add <本仓库路径>`（或手动把仓库放进 profile 的 node_modules）。
+2. 编辑该 profile 的 `package.json`，把 `"dsh-bottom-bar"` 追加进 `dsh.profile.bundles` 数组：
+
+   ```json
+   "dsh": { "profile": { "bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-bottom-bar"] } }
+   ```
+
+3. 重启 `dsh --profile web`。插件行由 bundle patch（`cordis.patch.yml` 的 `- insert:`）自动插入；host face 由 `dsh-typert-loader` 在挂载时自动 import `./typert` 并 contribute；客户端自 `$mount` 后底栏与设置页即可用。
+
+> ⚠️ 静态包生效后请勿再跑动态插件，避免两个实例同时写同一账本文件。
 
 ## 仓库结构
 
-- `lib/` — 静态固化包源码（**未完成，仅作动态版生成基底与后续修复用**；`lib/client.js` 是动态客户端 `dynamic/client.js` 的机械生成源）
-- `dynamic/` — **当前可用形态：动态插件源码**（host + client 半体，会话内运行；`client.js` 由生成器产出，勿手改）
+- `lib/` — 静态固化包源码（**已完成，可安装**：`index.js` host 类插件 + `client.js` 静态客户端（ModuleLoader，同时是动态 client 的生成源）+ `typert.host.js` / `typert.remote-client.js` 产物）
+- `dynamic/` — 动态插件源码（会话内运行形态；`client.js` 由生成器从 lib/client.js 产出，勿手改）
+- `cordis.patch.yml` — profile bundle patch（`- insert:` 插入插件行）
 - `scripts/static-to-dynamic.cjs` — 从 `lib/client.js` 生成 `dynamic/client.js` 的同步工具（注意：`ctx.slots`/`ctx.locale` 不可改写为自由变量，见生成器头注释）
 - `scripts/dynamic-to-static.cjs` — 反向同步：把运行中的动态 client 变回静态 `lib/client.js`（修订注释自动追加），配合正向生成器做**往返一致验证**
 - `docs/lessons.md` — 开发教训 30+ 条（槽位回退、RPC 取消风暴、持久化缓存、树内约束、静态包 boot 坑、动态客户端服务访问、增量账本、沙箱 workspaceRoot、渠道归因等）
@@ -44,14 +61,9 @@ DSH 底栏统计行插件（可组装 + 预估费用）：接管 `conversation.c
 - 黑条行为（auto = 仅截断时显示 / always）、费用精度（compact / full）
 - 价格表（最底部折叠）：增删模型、改价、恢复默认
 
-## 静态固化包（未完成 · 修复清单）
+## 静态固化包（已完成 · 2026-08-15）
 
-若后续修复，需要：
-
-1. **Host boot 修复**：定位并消除 loader boot 下的 `service "bottomBar" has been registered`（疑似对象插件 + apply 内手动 `new Service` 与官方类插件模式的差异；官方带 Remote 的插件均为 Service 子类作 default export，如 `dsh-goal`）
-2. **typert/remote 产物**：参考官方插件（`dsh-goal` 的 `lib/typert.host.js` / `lib/typert.remote-client.js` + package.json 的 `./typert` / `./remote` exports）补齐，客户端才能解析 `remote.bottomBar`
-3. **Host 逻辑同步**：静态 `lib/index.js` 落后于动态版（价格表缺 deepseek-v4-pro 等）
-4. **真实 boot 验证**：固化后必须用干净环境真实启动（`dsh --profile web --port <空闲端口>`）验证，不能再只验 import/dump-config
+已按官方类插件模式重写并验证：`export default BottomBarService extends TypertRemoteService`（Remote 标记 = 方法名，host gateway SRC 发现 + `dsh-typert-loader` 自动 contribute `./typert` FaceModel 双通道路由）；存储改 node:fs/promises 直写官方 `~/.dsh`（主进程无沙箱）；`lib/typert.host.js`（FaceModel）+ `lib/typert.remote-client.js`（TYPERT_REMOTE，客户端自 `$mount`，codec 用透传 schema 免 zod 依赖）+ `cordis.patch.yml`（bundle `- insert:`）。逻辑与动态版同步到修订 36。
 
 ## 官方文档参考
 
