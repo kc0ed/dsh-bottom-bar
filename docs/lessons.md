@@ -416,3 +416,9 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **修法**：文字改主题自适应 `var(--dsw-alias-label-primary)`（深底亮字/浅底深字都成立）、分隔线 `rgba(255,255,255,.18)` → `var(--dsw-alias-border-l2)`、滚动条 `rgba(255,255,255,.35)` → `var(--dsw-alias-label-tertiary)`。
 - **保留不动**的「brand 底白字」模式（`.dsh-preview-hl` 高亮、`.dsh-switch-knob` 滑块）：底色是饱和品牌色，白字在两种主题都成立，属于安全模式。
 - **教训**：复刻官方样式时别照抄「static 色」——`--dsw-static-*` 前缀就是不随主题变的颜色，凡是和可变的 alias 背景配对的 static 前景色都要警惕主题翻转；文字一律用 `--dsw-alias-label-*` 系。
+
+## 39. tooltip-bg 是 legacy 别名,弹层要用注册的 bg-overlay（修订 40，2026-08-15）
+- **症状**：修订 39 把弹层文字改成 label-primary 后，用户报告「背景变成黑色了」——`--dsw-alias-tooltip-bg` **不在官方 Theme 注册表**（`Theme.listTokens` 只列了 `--dsw-alias-bg-overlay`，描述 "Overlay and popover background"，`requiresLightAndDark: true`）。
+- **推论**：官方复刻件沿用的 `tooltip-bg` 是 legacy 别名，主题里行为不可靠（用户主题：浅色=纯白、深色=纯黑）——浅色下白字白底（修订 39 前），深色下黑底黑字/黑底突兀（修订 39 后）。跟它配对永远赌主题脸色。
+- **修法**：弹层/黑条/预览气泡背景统一改**官方注册的** `var(--dsw-alias-bg-overlay)` + `var(--dsw-alias-label-primary)`——主题系统保证该 token 明暗两套值，浅色=浅底深字、深色=深底浅字，彻底跟随主题，不再依赖任何 legacy 别名。
+- **教训**：判断一个 CSS 变量靠不靠谱，先查官方 Token 注册表（Inspect → Theme.listTokens），不在表里的别名一律视为「可能被主题玩坏」；浮层/弹层用 `bg-overlay` 而不是 tooltip 系别名。
