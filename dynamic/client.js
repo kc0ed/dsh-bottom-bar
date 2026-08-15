@@ -364,13 +364,87 @@ body[data-ds-dark-theme] .dsh-comp-row.dsh-on {
 }
 .dsh-comp-row.dsh-selected {
   border-color: var(--dsw-alias-brand-primary) !important;
-  background: rgba(193, 95, 60, 0.08) !important;
-  box-shadow: 0 0 0 1.5px var(--dsw-alias-brand-primary), 0 2px 8px rgba(193, 95, 60, 0.14) !important;
+  background: linear-gradient(90deg, rgba(193, 95, 60, 0.16) 0%, rgba(193, 95, 60, 0.06) 100%) !important;
+  box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary), 0 4px 18px rgba(193, 95, 60, 0.30) !important;
+  transform: translateY(-1px) scale(1.008);
 }
 body[data-ds-dark-theme] .dsh-comp-row.dsh-selected {
-  background: rgba(217, 119, 87, 0.12) !important;
+  background: linear-gradient(90deg, rgba(217, 119, 87, 0.24) 0%, rgba(217, 119, 87, 0.09) 100%) !important;
   border-color: #D97757 !important;
-  box-shadow: 0 0 0 1.5px #D97757, 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+  box-shadow: 0 0 0 2px #D97757, 0 4px 22px rgba(217, 119, 87, 0.40) !important;
+  transform: translateY(-1px) scale(1.008);
+}
+.dsh-comp-row.dsh-selected .dsh-comp-label {
+  color: var(--dsw-alias-brand-primary) !important;
+  font-weight: 600;
+}
+.dsh-comp-selected-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--dsw-alias-brand-primary);
+  color: #FFFFFF !important;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+  box-shadow: 0 2px 6px rgba(193, 95, 60, 0.35);
+  user-select: none;
+}
+.dsh-multi-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(193, 95, 60, 0.12);
+  border: 1px solid var(--dsw-alias-brand-primary);
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 4px;
+  box-shadow: 0 2px 8px rgba(193, 95, 60, 0.15);
+}
+body[data-ds-dark-theme] .dsh-multi-bar {
+  background: rgba(217, 119, 87, 0.18);
+  border-color: #D97757;
+}
+.dsh-multi-bar-action {
+  font-size: 11.5px;
+  color: var(--dsw-alias-brand-primary);
+  background: transparent;
+  border: 1px solid var(--dsw-alias-brand-primary);
+  border-radius: 5px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.dsh-multi-bar-action:hover {
+  background: var(--dsw-alias-brand-primary);
+  color: #FFFFFF;
+}
+.dsh-price-template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-module-platform);
+  border: 1px solid var(--dsw-alias-border-l1);
+  margin-top: 6px;
+}
+.dsh-price-preview-badge {
+  font-size: 11.5px;
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(193, 95, 60, 0.08);
+  border: 1px dashed var(--dsw-alias-brand-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .dsh-comp-row.dsh-dragging {
   opacity: 0.85;
@@ -1048,8 +1122,13 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [precision, setPrecision] = React.useState('compact')
             const [prices, setPrices] = React.useState(null)
             const [pricesOpen, setPricesOpen] = React.useState(false)
+            const [vendorTpl, setVendorTpl] = React.useState('auto')
             const [newModel, setNewModel] = React.useState('')
             const [newIn, setNewIn] = React.useState('')
+            const [customCurrency, setCustomCurrency] = React.useState('CNY')
+            const [customOut, setCustomOut] = React.useState('')
+            const [customRead, setCustomRead] = React.useState('')
+            const [customWrite, setCustomWrite] = React.useState('')
             const [hovered, setHovered] = React.useState(null)
             const [dragFrom, setDragFrom] = React.useState(null)
             const dragFromRef = React.useRef(null)
@@ -1252,69 +1331,77 @@ body[data-ds-dark-theme] .dsh-price-input {
             const removePrice = (model) => {
               host.call('remove-price', { model }).then((result) => { if (result.prices) setPrices(result.prices) }).catch((err) => console.error('dsh-bottom-bar: removePrice failed', err))
             }
-            const derivePrice = (modelId, inPrice) => {
-              const m = modelId.toLowerCase()
-              // DeepSeek 系: CNY, out 2x~4x, cacheRead 0.02x~0.25x
-              if (m.includes('deepseek')) {
-                const isV4 = m.includes('v4') || m.includes('flash')
-                const outMult = isV4 ? 2 : 4
-                const readMult = isV4 ? 0.02 : 0.25
+            const VENDOR_TEMPLATES = [
+              { id: 'auto', name: '⚡ 智能自动识别（按模型名匹配厂商公式）' },
+              { id: 'deepseek-v4', name: '🐳 DeepSeek V4 (1 : 2 : 0.02 : 0.02) · CNY', currency: 'CNY', out: 2, read: 0.02, write: 0.02 },
+              { id: 'deepseek-v3', name: '🐳 DeepSeek V3/R1 (1 : 4 : 0.25 : 1.0) · CNY', currency: 'CNY', out: 4, read: 0.25, write: 1.0 },
+              { id: 'claude', name: '⚡ Anthropic Claude (1 : 5 : 0.1 : 1.25) · USD', currency: 'USD', out: 5, read: 0.1, write: 1.25 },
+              { id: 'openai', name: '🧠 OpenAI GPT/o-series (1 : 4 : 0.5 : 1.25) · USD', currency: 'USD', out: 4, read: 0.5, write: 1.25 },
+              { id: 'gemini', name: '🌐 Google Gemini (1 : 4 : 0.25 : 1.0) · USD', currency: 'USD', out: 4, read: 0.25, write: 1.0 },
+              { id: 'kimi', name: '🌙 Kimi / 月之暗面 (1 : 4 : 0.2 : 1.0) · CNY', currency: 'CNY', out: 4, read: 0.2, write: 1.0 },
+              { id: 'qwen', name: '🇨🇳 通义千问 / GLM / MiniMax (1 : 3.5 : 0.25 : 1.0) · CNY', currency: 'CNY', out: 3.5, read: 0.25, write: 1.0 },
+              { id: 'custom', name: '⚙️ 手动填写每个价格桶' },
+            ]
+
+            const computePreviewPrice = () => {
+              const inVal = Number(newIn)
+              const inPrice = Number.isFinite(inVal) && inVal >= 0 ? inVal : 0
+              if (vendorTpl === 'custom') {
                 return {
-                  currency: 'CNY',
+                  currency: customCurrency,
                   in: inPrice,
-                  cacheRead: Math.round(inPrice * readMult * 1000) / 1000,
-                  cacheWrite: Math.round(inPrice * readMult * 1000) / 1000,
-                  out: Math.round(inPrice * outMult * 1000) / 1000,
+                  cacheRead: customRead === '' ? undefined : Number(customRead),
+                  cacheWrite: customWrite === '' ? undefined : Number(customWrite),
+                  out: customOut === '' ? inPrice * 2 : Number(customOut),
+                  tplName: '自定义单价',
                 }
               }
-              // OpenAI 系: USD, out 4x, cacheRead 0.5x, cacheWrite 1.25x
-              if (m.includes('gpt') || m.includes('openai') || m.includes('o1') || m.includes('o3')) {
-                return {
-                  currency: 'USD',
-                  in: inPrice,
-                  cacheRead: Math.round(inPrice * 0.5 * 1000) / 1000,
-                  cacheWrite: Math.round(inPrice * 1.25 * 1000) / 1000,
-                  out: Math.round(inPrice * 4 * 1000) / 1000,
+              let tpl = VENDOR_TEMPLATES.find((t) => t.id === vendorTpl)
+              if (!tpl || tpl.id === 'auto') {
+                const m = newModel.toLowerCase()
+                if (m.includes('claude') || m.includes('anthropic')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'claude')
+                else if (m.includes('gpt') || m.includes('openai') || m.includes('o1') || m.includes('o3') || m.includes('o4')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'openai')
+                else if (m.includes('gemini') || m.includes('google')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'gemini')
+                else if (m.includes('kimi') || m.includes('moonshot')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'kimi')
+                else if (m.includes('deepseek')) {
+                  const isV4 = m.includes('v4') || m.includes('flash')
+                  tpl = isV4 ? VENDOR_TEMPLATES.find((t) => t.id === 'deepseek-v4') : VENDOR_TEMPLATES.find((t) => t.id === 'deepseek-v3')
+                } else if (m.includes('qwen') || m.includes('glm') || m.includes('minimax') || m.includes('doubao')) {
+                  tpl = VENDOR_TEMPLATES.find((t) => t.id === 'qwen')
+                } else {
+                  tpl = VENDOR_TEMPLATES.find((t) => t.id === 'deepseek-v4')
                 }
               }
-              // Gemini 系: USD, out 4x, cacheRead 0.25x, cacheWrite 1.0x
-              if (m.includes('gemini') || m.includes('google')) {
-                return {
-                  currency: 'USD',
-                  in: inPrice,
-                  cacheRead: Math.round(inPrice * 0.25 * 1000) / 1000,
-                  cacheWrite: Math.round(inPrice * 1.0 * 1000) / 1000,
-                  out: Math.round(inPrice * 4 * 1000) / 1000,
-                }
-              }
-              // 国产大模型系 (Qwen / Kimi / GLM / MiniMax / 豆包): CNY, out 3x~4x, cacheRead 0.2x~0.25x
-              if (m.includes('qwen') || m.includes('kimi') || m.includes('glm') || m.includes('minimax') || m.includes('doubao')) {
-                return {
-                  currency: 'CNY',
-                  in: inPrice,
-                  cacheRead: Math.round(inPrice * 0.25 * 1000) / 1000,
-                  cacheWrite: Math.round(inPrice * 1.0 * 1000) / 1000,
-                  out: Math.round(inPrice * 3 * 1000) / 1000,
-                }
-              }
-              // Claude 系与经典黄金比例 (1x : 5x : 0.1x : 1.25x)
+              const curr = tpl.currency || 'CNY'
               return {
-                currency: 'USD',
+                currency: curr,
                 in: inPrice,
-                cacheRead: Math.round(inPrice * 0.1 * 1000) / 1000,
-                cacheWrite: Math.round(inPrice * 1.25 * 1000) / 1000,
-                out: Math.round(inPrice * 5 * 1000) / 1000,
+                cacheRead: Math.round(inPrice * tpl.read * 1000) / 1000,
+                cacheWrite: Math.round(inPrice * tpl.write * 1000) / 1000,
+                out: Math.round(inPrice * tpl.out * 1000) / 1000,
+                tplName: tpl.name,
               }
             }
+
             const addPrice = () => {
               const id = newModel.trim()
               if (id === '') return
-              const input = Number(newIn)
-              const inPrice = Number.isFinite(input) && input >= 0 ? input : 0
+              const computed = computePreviewPrice()
               setNewModel('')
               setNewIn('')
-              const derived = derivePrice(id, inPrice)
-              host.call('set-price', { model: id, price: derived })
+              setCustomOut('')
+              setCustomRead('')
+              setCustomWrite('')
+              host.call('set-price', {
+                model: id,
+                price: {
+                  currency: computed.currency,
+                  in: computed.in,
+                  cacheRead: computed.cacheRead === undefined ? null : computed.cacheRead,
+                  cacheWrite: computed.cacheWrite === undefined ? null : computed.cacheWrite,
+                  out: computed.out,
+                },
+              })
                 .then((result) => { if (result.prices) setPrices(result.prices) })
                 .catch((err) => console.error('dsh-bottom-bar: addPrice failed', err))
             }
@@ -1384,6 +1471,12 @@ body[data-ds-dark-theme] .dsh-price-input {
                 : ''
               const isSelected = selectedIds.has(seg.id)
               const isDraggingThis = dragFrom === index || (dragFrom !== null && isSelected && selectedIds.has(effectiveSegments[dragFrom]?.id))
+              let selectGrip = React.createElement('span', { className: 'dsh-comp-grip' }, '⠿')
+              if (isSelected) {
+                const orderedSelected = effectiveSegments.filter((s) => selectedIds.has(s.id))
+                const sIndex = orderedSelected.findIndex((s) => s.id === seg.id) + 1
+                selectGrip = React.createElement('span', { className: 'dsh-comp-selected-badge' }, '✓ ' + (selectedIds.size > 1 ? '#' + sIndex : '已选'))
+              }
               return React.createElement(
                 'div',
                 {
@@ -1396,7 +1489,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                   onMouseLeave: () => setHovered(null),
                   onDragStart: (e) => onRowDragStart(index, seg.id, e),
                 },
-                React.createElement('span', { className: 'dsh-comp-grip' }, isSelected && selectedIds.size > 1 ? '⠿ (' + selectedIds.size + ')' : '⠿'),
+                selectGrip,
                 React.createElement('div', { className: 'dsh-comp-label-wrap' },
                   React.createElement('span', { className: 'dsh-comp-label' }, SEGMENT_LABELS[seg.id] || seg.id),
                   sampleText ? React.createElement('span', { className: 'dsh-comp-sample' }, '示例: ' + sampleText) : null,
@@ -1447,6 +1540,10 @@ body[data-ds-dark-theme] .dsh-price-input {
                   : React.createElement('div', { className: 'dsh-preview-dock', title: previewSegs.map((s) => s.text).join(' | ') },
                       React.createElement('div', { className: 'dsh-preview-line' }, makeLineChildren()),
                     ),
+              ),
+              selectedIds.size > 0 && React.createElement('div', { className: 'dsh-multi-bar' },
+                React.createElement('span', null, '✨ 已按原序选中 ' + selectedIds.size + ' 项 · 按住 Ctrl 可增减选择 · 拖拽任意一项即可批量重排'),
+                React.createElement('button', { className: 'dsh-multi-bar-action', onClick: () => { setSelectedIds(new Set()); selectedIdsRef.current = new Set() } }, '清除选择'),
               ),
               React.createElement('div', { className: 'dsh-comp-list', ref: listRef,
                 onDragOver: (e) => {
@@ -1500,12 +1597,40 @@ body[data-ds-dark-theme] .dsh-price-input {
                   React.createElement('span', { style: { width: 24 } }, ''),
                 ),
                 priceRows,
-                React.createElement('div', { className: 'dsh-price-add' },
-                  React.createElement('input', { type: 'text', placeholder: '模型 id，如 gpt-4o', value: newModel, onChange: (e) => setNewModel(e.target.value) }),
-                  React.createElement('input', { type: 'number', step: '0.01', placeholder: '输入价（USD）', value: newIn, onChange: (e) => setNewIn(e.target.value) }),
-                  React.createElement('button', { className: 'dsh-comp-btn', onClick: addPrice }, '添加'),
-                  React.createElement('button', { className: 'dsh-comp-btn', onClick: resetPrices }, '恢复默认价格'),
-                ),
+                (() => {
+                  const preview = computePreviewPrice()
+                  const sym = preview.currency === 'USD' ? '$' : '¥'
+                  return React.createElement('div', { className: 'dsh-price-template-card' },
+                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                      React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--dsw-alias-label-primary)', whiteSpace: 'nowrap' } }, '厂商比例模板:'),
+                      React.createElement('select', {
+                        className: 'dsh-comp-select',
+                        style: { flex: 1 },
+                        value: vendorTpl,
+                        onChange: (e) => setVendorTpl(e.target.value),
+                      }, VENDOR_TEMPLATES.map((t) => React.createElement('option', { value: t.id, key: t.id }, t.name))),
+                    ),
+                    React.createElement('div', { className: 'dsh-price-add' },
+                      React.createElement('input', { type: 'text', style: { flex: 1.5 }, placeholder: '模型 id，如 opencode/deepseek-v4-flash', value: newModel, onChange: (e) => setNewModel(e.target.value) }),
+                      React.createElement('input', { type: 'number', step: '0.01', style: { flex: 1 }, placeholder: '输入单价 (' + preview.currency + ')', value: newIn, onChange: (e) => setNewIn(e.target.value) }),
+                      React.createElement('button', { className: 'dsh-comp-btn', onClick: addPrice }, '添加/更新价格'),
+                      React.createElement('button', { className: 'dsh-comp-btn', onClick: resetPrices }, '恢复默认价格'),
+                    ),
+                    vendorTpl === 'custom' && React.createElement('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                      React.createElement('select', { className: 'dsh-comp-select', value: customCurrency, onChange: (e) => setCustomCurrency(e.target.value) }, ['CNY', 'USD'].map((c) => React.createElement('option', { value: c, key: c }, c))),
+                      React.createElement('input', { className: 'dsh-price-input', placeholder: '缓存读单价', value: customRead, onChange: (e) => setCustomRead(e.target.value) }),
+                      React.createElement('input', { className: 'dsh-price-input', placeholder: '缓存写单价', value: customWrite, onChange: (e) => setCustomWrite(e.target.value) }),
+                      React.createElement('input', { className: 'dsh-price-input', placeholder: '输出单价', value: customOut, onChange: (e) => setCustomOut(e.target.value) }),
+                    ),
+                    React.createElement('div', { className: 'dsh-price-preview-badge' },
+                      React.createElement('span', null, '💡 自动推导: ' + preview.tplName),
+                      React.createElement('span', null, '币种: ' + preview.currency),
+                      React.createElement('span', null, '输出: ' + sym + preview.out),
+                      React.createElement('span', null, '读缓存: ' + sym + (preview.cacheRead !== undefined ? preview.cacheRead : '—')),
+                      React.createElement('span', null, '写缓存: ' + sym + (preview.cacheWrite !== undefined ? preview.cacheWrite : '—')),
+                    ),
+                  )
+                })(),
               ),
               // 修订 38：客户端全量面板按用户参考稿重排——标题行（小号大写样式
               // 标题 + 右侧绿色「命中率」徽章）、模型名、token 2×2 网格（值 +
