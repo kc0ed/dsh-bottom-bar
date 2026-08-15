@@ -458,3 +458,8 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **查主题真身**（dsh-claude-theme/theme.css）：`--dsw-alias-brand-primary` 浅 `#C15F3C` / 深 `#D97757` —— **正是写死的两个值**（作者把两套品牌色手动编进了明暗块）；且主题自己用 `color-mix(in srgb, var(--dsw-alias-brand-primary) X%, transparent)` 派生透明强调色（995/1013 行）——这就是官方跟随主题色的姿势，说明运行时 Chromium 支持 color-mix。
 - **修法**：`scripts/tokenize-colors.cjs` 批量替换（幂等）——`#D97757` → `var(--dsw-alias-brand-primary)`；`rgba(193/217,95/119,60/87,A)` → `color-mix(in srgb, var(--dsw-alias-brand-primary) A×100%, transparent)`；`#383731` → `var(--dsw-alias-border-l2)`（深色 border-l2 #3A3934 几乎同值）。共 45 处。中性色（黑/白/深药丸底 rgba(44,39,32,.90)）保持不动。
 - **教训**：① 做「主题化」先 grep 全文件硬编码色 + 查主题 CSS 确认对应 token 的值——写死值和 token 值对得上就说明找对了；② 半透明强调色一律 `color-mix(in srgb, var(--token) X%, transparent)`，不要 rgb() 手拆通道（主题一换就废）；③ 明暗两套块 token 化后值相同 → 冗余但无害，可后续合并。
+
+## 46. 品牌色在默认主题是黑色 → 局部强调色要能解耦（修订 70，2026-08-15）
+- **症状**：用户「默认主题下预览区选中的效果是黑色的，太黑对比过强，改成灰色」——默认 DSH 主题的 `--dsw-alias-brand-primary` 是近黑色，预览高亮 `background: brand-primary + 白字` 直接变成黑底白字。
+- **修法**：预览区强调色与品牌色**解耦**——在 `.dsh-comp-page` 定义局部变量 `--dsh-preview-accent:#6B6B6B`（中性灰，明暗主题通用，白字对比 ≈5:1），预览区 hover/高亮（dsh-preview-hl）/幽灵分段（dsh-preview-ghost）六条规则全部改用 `var(--dsh-preview-accent)` + color-mix 派生；**列表行选中、徽章、多选条仍走品牌色**（用户只点名预览区）。
+- **教训**：① 「跟随主题色」不等于「所有强调色都用 brand-primary」——当主题 brand 是黑/深色时，实心高亮块会黑成一团；高亮类效果要有独立的可调 accent（局部 CSS 变量,一处定义多处引用）；② 改色前先问清范围（预览区 vs 列表 vs 全局），用户点名哪块就改哪块,别顺手全换。
