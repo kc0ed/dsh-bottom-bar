@@ -459,7 +459,7 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **修法**：`scripts/tokenize-colors.cjs` 批量替换（幂等）——`#D97757` → `var(--dsw-alias-brand-primary)`；`rgba(193/217,95/119,60/87,A)` → `color-mix(in srgb, var(--dsw-alias-brand-primary) A×100%, transparent)`；`#383731` → `var(--dsw-alias-border-l2)`（深色 border-l2 #3A3934 几乎同值）。共 45 处。中性色（黑/白/深药丸底 rgba(44,39,32,.90)）保持不动。
 - **教训**：① 做「主题化」先 grep 全文件硬编码色 + 查主题 CSS 确认对应 token 的值——写死值和 token 值对得上就说明找对了；② 半透明强调色一律 `color-mix(in srgb, var(--token) X%, transparent)`，不要 rgb() 手拆通道（主题一换就废）；③ 明暗两套块 token 化后值相同 → 冗余但无害，可后续合并。
 
-## 46. 品牌色在默认主题是黑色 → 局部强调色要能解耦（修订 70，2026-08-15）
-- **症状**：用户「默认主题下预览区选中的效果是黑色的，太黑对比过强，改成灰色」——默认 DSH 主题的 `--dsw-alias-brand-primary` 是近黑色，预览高亮 `background: brand-primary + 白字` 直接变成黑底白字。
-- **修法**：预览区强调色与品牌色**解耦**——在 `.dsh-comp-page` 定义局部变量 `--dsh-preview-accent:#6B6B6B`（中性灰，明暗主题通用，白字对比 ≈5:1），预览区 hover/高亮（dsh-preview-hl）/幽灵分段（dsh-preview-ghost）六条规则全部改用 `var(--dsh-preview-accent)` + color-mix 派生；**列表行选中、徽章、多选条仍走品牌色**（用户只点名预览区）。
-- **教训**：① 「跟随主题色」不等于「所有强调色都用 brand-primary」——当主题 brand 是黑/深色时，实心高亮块会黑成一团；高亮类效果要有独立的可调 accent（局部 CSS 变量,一处定义多处引用）；② 改色前先问清范围（预览区 vs 列表 vs 全局），用户点名哪块就改哪块,别顺手全换。
+## 46. 局部强调色要不要解耦：用户拍板「跟着主题色走」（修订 70/71，2026-08-15）
+- **第一轮（修订 70）**：默认主题下 brand-primary 是近黑色 → 预览区高亮黑底白字对比过强，用户要求「改成灰色」。做了局部变量 `--dsh-preview-accent:#6B6B6B`（.dsh-comp-page 上定义），预览区 hover/高亮/幽灵分段与品牌色解耦，列表选中/徽章/多选条仍走品牌色。
+- **第二轮（修订 71）**：用户改口「还是改回去吧，跟着主题色走比较好」→ 完整回退：预览区恢复 `var(--dsw-alias-brand-primary)` + color-mix 派生，局部变量删除。教训注释保留在代码头。
+- **教训**：① 主题色驱动的 UI，用户最终倾向是「跟随主题色」——临时性审美妥协（灰色）往往是试探，做完后用户可能反悔；解耦方案尽量做成「局部 CSS 变量 + 一处定义」的形式，回退成本一行。② 用户说「改回去」就干净回退代码，别保留半吊子的双轨；文档里如实记录两轮决策即可。

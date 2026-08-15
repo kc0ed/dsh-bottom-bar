@@ -367,46 +367,42 @@ body[data-ds-dark-theme] .dsh-preview-dock {
   opacity: 1;
   padding: 0 6px;
 }
-/* 修订 70：预览区强调色与品牌色解耦——默认主题下 brand-primary 是黑色，
-   预览高亮黑底白字对比过强；改用中性灰 --dsh-preview-accent（明暗主题通用，
-   白字对比度 ≈5:1） */
-.dsh-comp-page {
-  --dsh-preview-accent: #6B6B6B;
-}
+/* 修订 71：修订 70 按用户决定回退——「跟着主题色走还是比较好」，
+   预览区强调色恢复跟随 var(--dsw-alias-brand-primary) + color-mix 派生 */
 .dsh-preview-seg:hover {
-  background: color-mix(in srgb, var(--dsh-preview-accent) 12%, transparent);
-  color: var(--dsh-preview-accent);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
+  color: var(--dsw-alias-brand-primary);
   border-color: transparent;
 }
 body[data-ds-dark-theme] .dsh-preview-seg:hover {
-  background: color-mix(in srgb, var(--dsh-preview-accent) 18%, transparent);
-  color: var(--dsh-preview-accent);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 18%, transparent);
+  color: var(--dsw-alias-brand-primary);
   border-color: transparent;
 }
 .dsh-preview-hl {
-  background: var(--dsh-preview-accent) !important;
+  background: var(--dsw-alias-brand-primary) !important;
   color: #FFFFFF !important;
-  border-color: var(--dsh-preview-accent) !important;
+  border-color: var(--dsw-alias-brand-primary) !important;
   font-weight: 500 !important;
-  box-shadow: 0 0 12px color-mix(in srgb, var(--dsh-preview-accent) 50%, transparent), 0 2px 6px color-mix(in srgb, var(--dsh-preview-accent) 35%, transparent) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--dsw-alias-brand-primary) 50%, transparent), 0 2px 6px color-mix(in srgb, var(--dsw-alias-brand-primary) 35%, transparent) !important;
 }
 body[data-ds-dark-theme] .dsh-preview-hl {
-  background: var(--dsh-preview-accent) !important;
-  border-color: var(--dsh-preview-accent) !important;
-  box-shadow: 0 0 14px color-mix(in srgb, var(--dsh-preview-accent) 60%, transparent), 0 2px 8px color-mix(in srgb, var(--dsh-preview-accent) 40%, transparent) !important;
+  background: var(--dsw-alias-brand-primary) !important;
+  border-color: var(--dsw-alias-brand-primary) !important;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 60%, transparent), 0 2px 8px color-mix(in srgb, var(--dsw-alias-brand-primary) 40%, transparent) !important;
 }
 .dsh-preview-ghost {
-  border: 1px dashed var(--dsh-preview-accent) !important;
-  background: color-mix(in srgb, var(--dsh-preview-accent) 15%, transparent) !important;
-  color: var(--dsh-preview-accent) !important;
+  border: 1px dashed var(--dsw-alias-brand-primary) !important;
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 15%, transparent) !important;
+  color: var(--dsw-alias-brand-primary) !important;
   font-weight: 500 !important;
-  box-shadow: 0 0 10px color-mix(in srgb, var(--dsh-preview-accent) 30%, transparent), inset 0 0 6px color-mix(in srgb, var(--dsh-preview-accent) 15%, transparent) !important;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--dsw-alias-brand-primary) 30%, transparent), inset 0 0 6px color-mix(in srgb, var(--dsw-alias-brand-primary) 15%, transparent) !important;
 }
 body[data-ds-dark-theme] .dsh-preview-ghost {
-  border-color: var(--dsh-preview-accent) !important;
-  background: color-mix(in srgb, var(--dsh-preview-accent) 20%, transparent) !important;
-  color: var(--dsh-preview-accent) !important;
-  box-shadow: 0 0 12px color-mix(in srgb, var(--dsh-preview-accent) 40%, transparent), inset 0 0 8px color-mix(in srgb, var(--dsh-preview-accent) 20%, transparent) !important;
+  border-color: var(--dsw-alias-brand-primary) !important;
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent) !important;
+  color: var(--dsw-alias-brand-primary) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--dsw-alias-brand-primary) 40%, transparent), inset 0 0 8px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent) !important;
 }
 
 /* 预览区内置分隔符平滑过渡 */
