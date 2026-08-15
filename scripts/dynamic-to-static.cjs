@@ -98,7 +98,11 @@ const SCAFFOLD = `window.__ModuleLoader__.load({
 
     // ── 幂等样式注入（静态插件无 styles 符号） ──
     function insertCss(css) {
+      // 追加 + Set 去重（函数属性）：多次调用不互相覆盖、重挂不重复追加
       if (typeof document === 'undefined') return
+      if (insertCss.seen === undefined) insertCss.seen = new Set()
+      if (insertCss.seen.has(css)) return
+      insertCss.seen.add(css)
       const tagId = 'dsh-bottom-bar'
       let tag = document.querySelector('style[data-plugin-css="' + tagId + '"]')
       if (tag === null) {
@@ -106,7 +110,7 @@ const SCAFFOLD = `window.__ModuleLoader__.load({
         tag.dataset.pluginCss = tagId
         document.head.appendChild(tag)
       }
-      tag.textContent = css
+      tag.textContent += css
     }
 
     const inject = ['slots', 'remote', 'locale', 'timer']
