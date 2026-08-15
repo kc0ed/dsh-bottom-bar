@@ -10,7 +10,23 @@ return {
   inject: ['timer', 'locale', 'slots'],
 
                 
-    
+    // ── 幂等样式注入（静态插件无 styles 符号；追加 + Set 去重，避免多次
+    // 调用互相覆盖或重挂重复追加） ──
+    const insertCssSeen = new Set()
+    function styles.insert(css) {
+      if (typeof document === 'undefined') return
+      if (insertCssSeen.has(css)) return
+      insertCssSeen.add(css)
+      const tagId = 'dsh-bottom-bar'
+      let tag = document.querySelector('style[data-plugin-css="' + tagId + '"]')
+      if (tag === null) {
+        tag = document.createElement('style')
+        tag.dataset.pluginCss = tagId
+        document.head.appendChild(tag)
+      }
+      tag.textContent += css
+    }
+
     
     async apply(ctx) {
       // 修订 36（静态包）：Remote contribution——host 侧 SRC 发现按方法名路由，
