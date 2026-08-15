@@ -380,16 +380,11 @@ body[data-ds-dark-theme] .dsh-preview-seg:hover {
   border-color: transparent;
 }
 .dsh-preview-hl {
-  background: var(--dsw-alias-brand-primary) !important;
-  color: #FFFFFF !important;
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent) !important;
+  color: var(--dsw-alias-brand-primary) !important;
   border-color: var(--dsw-alias-brand-primary) !important;
   font-weight: 500 !important;
-  box-shadow: 0 0 12px color-mix(in srgb, var(--dsw-alias-brand-primary) 50%, transparent), 0 2px 6px color-mix(in srgb, var(--dsw-alias-brand-primary) 35%, transparent) !important;
-}
-body[data-ds-dark-theme] .dsh-preview-hl {
-  background: var(--dsw-alias-brand-primary) !important;
-  border-color: var(--dsw-alias-brand-primary) !important;
-  box-shadow: 0 0 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 60%, transparent), 0 2px 8px color-mix(in srgb, var(--dsw-alias-brand-primary) 40%, transparent) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent), 0 2px 6px color-mix(in srgb, var(--dsw-alias-brand-primary) 30%, transparent) !important;
 }
 .dsh-preview-ghost {
   border: 1px dashed var(--dsw-alias-brand-primary) !important;
@@ -571,8 +566,8 @@ body[data-ds-dark-theme] .dsh-comp-row.dsh-selected {
   width: 20px;
   height: 20px;
   border-radius: 5px;
-  background: var(--dsw-alias-brand-primary);
-  color: #FFFFFF !important;
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 22%, transparent);
+  color: var(--dsw-alias-brand-primary) !important;
   font-size: 12px;
   font-weight: 700;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--dsw-alias-brand-primary) 40%, transparent);
@@ -673,7 +668,7 @@ body[data-ds-dark-theme] .dsh-multi-bar {
   transition: all 0.15s ease;
 }
 .dsh-multi-bar-action:hover {
-  background: var(--dsw-alias-brand-primary);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 24%, transparent);
   border-color: var(--dsw-alias-brand-primary);
   color: #FFFFFF;
 }
@@ -765,7 +760,7 @@ body[data-ds-dark-theme] .dsh-multi-bar {
   transition: background 0.15s ease;
 }
 .dsh-switch input:checked + .dsh-switch-track {
-  background: var(--dsw-alias-brand-primary);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 50%, transparent);
 }
 .dsh-switch input:disabled + .dsh-switch-track {
   opacity: 0.4;
