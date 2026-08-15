@@ -410,3 +410,9 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - 总计栏用 `borderTop: 1px dashed var(--dsw-alias-border-l2)` + `paddingTop:8`，品牌色加粗 `fontSize:14`；卡片加 `border:1px solid var(--dsw-alias-border-l2)` + `fontVariantNumeric:tabular-nums`（数字等宽对齐）。
 - 颜色全部映射 DSH 主题变量（label-primary/secondary/tertiary、brand-primary），只有徽章绿用固定色（语义色，明暗主题都成立）；lineHeight 依旧必须带 px。
 - 改完同步跑 `node scripts/static-to-dynamic.cjs lib/client.js dynamic/client.js` 再提交，dynamic 镜像保持可 round-trip。
+
+## 38. 「tooltip-bg 底 + 白字」契约在浅色主题下失效（修订 39，2026-08-15）
+- **症状**：明细弹层（dsh-detail）/ 悬停黑条（dsh-tip）/ 设置页预览气泡（dsh-preview-bubble）在用户浅色主题下**白字白底不可见**——原样复刻官方的 `background:var(--dsw-alias-tooltip-bg); color:var(--dsw-static-neutral-bluish-00)` 白字契约，隐含假设 tooltip-bg **恒为深色**；主题把浅色模式的 tooltip-bg 改成纯白后契约破裂。
+- **修法**：文字改主题自适应 `var(--dsw-alias-label-primary)`（深底亮字/浅底深字都成立）、分隔线 `rgba(255,255,255,.18)` → `var(--dsw-alias-border-l2)`、滚动条 `rgba(255,255,255,.35)` → `var(--dsw-alias-label-tertiary)`。
+- **保留不动**的「brand 底白字」模式（`.dsh-preview-hl` 高亮、`.dsh-switch-knob` 滑块）：底色是饱和品牌色，白字在两种主题都成立，属于安全模式。
+- **教训**：复刻官方样式时别照抄「static 色」——`--dsw-static-*` 前缀就是不随主题变的颜色，凡是和可变的 alias 背景配对的 static 前景色都要警惕主题翻转；文字一律用 `--dsw-alias-label-*` 系。
