@@ -341,7 +341,31 @@ body[data-ds-dark-theme] .dsh-preview-dock {
   -webkit-user-select: none;
   -webkit-user-drag: none;
   cursor: pointer;
-  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  overflow: hidden;
+  max-width: 280px;
+  opacity: 1;
+  transition: max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.18s ease,
+              padding 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.16s ease,
+              color 0.16s ease,
+              border-color 0.16s ease,
+              box-shadow 0.16s ease;
+}
+.dsh-preview-seg.dsh-seg-collapsed {
+  max-width: 0 !important;
+  opacity: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin: 0 !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  pointer-events: none !important;
+}
+.dsh-preview-seg.dsh-seg-visible {
+  max-width: 280px;
+  opacity: 1;
+  padding: 0 6px;
 }
 .dsh-preview-seg:hover {
   background: rgba(193, 95, 60, 0.12);
@@ -371,8 +395,6 @@ body[data-ds-dark-theme] .dsh-preview-hl {
   color: var(--dsw-alias-brand-primary) !important;
   font-weight: 500 !important;
   box-shadow: 0 0 10px rgba(193, 95, 60, 0.30), inset 0 0 6px rgba(193, 95, 60, 0.15) !important;
-  overflow: hidden;
-  white-space: nowrap;
 }
 body[data-ds-dark-theme] .dsh-preview-ghost {
   border-color: #D97757 !important;
@@ -380,86 +402,33 @@ body[data-ds-dark-theme] .dsh-preview-ghost {
   color: #D97757 !important;
   box-shadow: 0 0 12px rgba(217, 119, 87, 0.40), inset 0 0 8px rgba(217, 119, 87, 0.20) !important;
 }
-.dsh-preview-ghost-enter {
-  animation: dsh-ghost-grow 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-.dsh-preview-ghost-exit {
-  animation: dsh-ghost-shrink 0.20s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-.dsh-ghost-sep-enter {
-  animation: dsh-ghost-sep-grow 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+
+/* 预览区内置分隔符平滑过渡 */
+.dsh-preview-dock .dsh-stats-sep {
+  color: var(--dsw-alias-label-tertiary);
+  opacity: 0.65;
+  font-weight: 300;
+  user-select: none;
+  display: inline-block;
   overflow: hidden;
   white-space: nowrap;
   vertical-align: middle;
+  max-width: 24px;
+  margin: 0 10px;
+  transition: max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.18s ease,
+              margin 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.dsh-ghost-sep-exit {
-  animation: dsh-ghost-sep-shrink 0.20s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  overflow: hidden;
-  white-space: nowrap;
-  vertical-align: middle;
+.dsh-preview-dock .dsh-stats-sep.dsh-sep-collapsed {
+  max-width: 0 !important;
+  opacity: 0 !important;
+  margin: 0 !important;
+  pointer-events: none !important;
 }
-@keyframes dsh-ghost-grow {
-  0% {
-    max-width: 0;
-    opacity: 0;
-    transform: scale(0.88);
-    padding-left: 0;
-    padding-right: 0;
-    margin: 0;
-  }
-  100% {
-    max-width: 280px;
-    opacity: 1;
-    transform: scale(1);
-    padding-left: 6px;
-    padding-right: 6px;
-  }
-}
-@keyframes dsh-ghost-shrink {
-  0% {
-    max-width: 280px;
-    opacity: 1;
-    transform: scale(1);
-    padding-left: 6px;
-    padding-right: 6px;
-  }
-  100% {
-    max-width: 0;
-    opacity: 0;
-    transform: scale(0.88);
-    padding-left: 0;
-    padding-right: 0;
-    margin: 0;
-    border-width: 0;
-  }
-}
-@keyframes dsh-ghost-sep-grow {
-  0% {
-    max-width: 0;
-    opacity: 0;
-    margin-left: 0;
-    margin-right: 0;
-  }
-  100% {
-    max-width: 24px;
-    opacity: 0.65;
-    margin-left: 10px;
-    margin-right: 10px;
-  }
-}
-@keyframes dsh-ghost-sep-shrink {
-  0% {
-    max-width: 24px;
-    opacity: 0.65;
-    margin-left: 10px;
-    margin-right: 10px;
-  }
-  100% {
-    max-width: 0;
-    opacity: 0;
-    margin-left: 0;
-    margin-right: 0;
-  }
+.dsh-preview-dock .dsh-stats-sep.dsh-sep-visible {
+  max-width: 24px;
+  opacity: 0.65;
+  margin: 0 10px;
 }
 .dsh-comp-row.dsh-row-hovered {
   border-color: var(--dsw-alias-brand-primary) !important;
@@ -1051,7 +1020,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [estimate, setEstimate] = React.useState(null)
             const initDockCfg = getLocalConfig()
             // 修订 26/62：首帧秒级从 LocalStorage + compositionValue 双重水合，刷新网页 0ms 完美保持所有定制配置
-            const [composition, setComposition] = React.useState(Array.isArray(compositionValue) ? compositionValue : (initDockCfg && Array.isArray(initDockCfg.segments) ? initDockCfg.segments : null))
+            const [composition, setComposition] = React.useState(Array.isArray(compositionValue) ? compositionValue : (initDockCfg && Array.isArray(initDockCfg.segments) ? initDockCfg.segments : DEFAULT_COMPOSITION))
             const [mode, setMode] = React.useState(initDockCfg && (initDockCfg.mode === 'separate' || initDockCfg.mode === 'combined') ? initDockCfg.mode : 'separate')
             const [tooltipAlways, setTooltipAlways] = React.useState(initDockCfg ? initDockCfg.tooltip === 'always' : false)
             const [precision, setPrecision] = React.useState(initDockCfg && initDockCfg.precision === 'full' ? 'full' : 'compact')
@@ -1436,9 +1405,6 @@ body[data-ds-dark-theme] .dsh-price-input {
               if (typeof window !== 'undefined') window.addEventListener('keydown', onKeyDown)
               return () => { if (typeof window !== 'undefined') window.removeEventListener('keydown', onKeyDown) }
             }, [])
-            const [ghostId, setGhostId] = React.useState(null)
-            const [ghostExiting, setGhostExiting] = React.useState(false)
-            const ghostTimerRef = React.useRef(null)
             const hoverTimerRef = React.useRef(null)
             const handleHover = (id) => {
               if (hoverTimerRef.current !== null) {
@@ -1446,40 +1412,13 @@ body[data-ds-dark-theme] .dsh-price-input {
                 hoverTimerRef.current = null
               }
               setHovered(id)
-              const curSegs = segmentsRef.current || []
-              const targetSeg = curSegs.find((s) => s.id === id)
-              if (targetSeg && targetSeg.enabled !== true) {
-                if (ghostTimerRef.current !== null) {
-                  clearTimeout(ghostTimerRef.current)
-                  ghostTimerRef.current = null
-                }
-                setGhostId(id)
-                setGhostExiting(false)
-              } else if (ghostId !== null && !ghostExiting) {
-                setGhostExiting(true)
-                if (ghostTimerRef.current !== null) clearTimeout(ghostTimerRef.current)
-                ghostTimerRef.current = setTimeout(() => {
-                  setGhostId(null)
-                  setGhostExiting(false)
-                  ghostTimerRef.current = null
-                }, 280)
-              }
             }
             const handleUnhover = () => {
               if (hoverTimerRef.current !== null) clearTimeout(hoverTimerRef.current)
               hoverTimerRef.current = setTimeout(() => {
                 setHovered(null)
                 hoverTimerRef.current = null
-                if (ghostId !== null) {
-                  setGhostExiting(true)
-                  if (ghostTimerRef.current !== null) clearTimeout(ghostTimerRef.current)
-                  ghostTimerRef.current = setTimeout(() => {
-                    setGhostId(null)
-                    setGhostExiting(false)
-                    ghostTimerRef.current = null
-                  }, 280)
-                }
-              }, 260)
+              }, 120)
             }
             // 鼠标悬停条目时：平滑将高光分段滑动对齐，两端自然吸附边框（不留虚空大空白，最多到边缘）；移开时不强行回弹
             React.useEffect(() => {
@@ -1835,37 +1774,48 @@ body[data-ds-dark-theme] .dsh-price-input {
               )
             }
             const offline = !Array.isArray(segments)
-            const previewSegs = []
-            for (const seg of effectiveSegments) {
-              const isEnabled = seg.enabled === true
-              const isGhost = !isEnabled && (ghostId === seg.id)
-              if (!isEnabled && !isGhost) continue
-              const sampleDef = PREVIEW_TEXTS[seg.id]
-              if (sampleDef === undefined) continue
-              const sample = typeof sampleDef === 'string' ? sampleDef : sampleDef[mode]
-              previewSegs.push({ id: seg.id, text: sample, isGhost: isGhost, isExiting: isGhost && ghostExiting })
-            }
             const makeLineChildren = () => {
               const children = []
-              previewSegs.forEach((item, i) => {
+              let visibleCount = 0
+              effectiveSegments.forEach((seg, i) => {
+                const sampleDef = PREVIEW_TEXTS[seg.id]
+                const sample = typeof sampleDef === 'string' ? sampleDef : (sampleDef ? sampleDef[mode] : '')
+                if (!sample) return
+
+                const isEnabled = seg.enabled === true
+                const isGhost = !isEnabled && (hovered === seg.id)
+                const isCurrentlyActive = isEnabled || isGhost
+
                 if (i > 0) {
-                  let sepClass = 'dsh-stats-sep'
-                  if (item.isGhost) {
-                    sepClass += item.isExiting ? ' dsh-ghost-sep-exit' : ' dsh-ghost-sep-enter'
-                  } else if (i === 1 && previewSegs[0].isGhost) {
-                    sepClass += previewSegs[0].isExiting ? ' dsh-ghost-sep-exit' : ' dsh-ghost-sep-enter'
-                  }
-                  children.push(React.createElement('span', { className: sepClass, 'aria-hidden': true, key: 'ps_sep_' + item.id }, '|'))
+                  const sepActive = isCurrentlyActive && visibleCount > 0
+                  children.push(React.createElement('span', {
+                    className: 'dsh-stats-sep' + (sepActive ? ' dsh-sep-visible' : ' dsh-sep-collapsed'),
+                    'aria-hidden': true,
+                    key: 'ps_sep_' + seg.id,
+                  }, '|'))
                 }
-                const ghostClass = item.isGhost ? (item.isExiting ? ' dsh-preview-ghost dsh-preview-ghost-exit' : ' dsh-preview-ghost dsh-preview-ghost-enter') : ''
+
+                if (isCurrentlyActive) {
+                  visibleCount++
+                }
+
+                let segClass = 'dsh-preview-seg'
+                if (isEnabled) {
+                  segClass += ' dsh-seg-visible' + (hovered === seg.id ? ' dsh-preview-hl' : '')
+                } else if (isGhost) {
+                  segClass += ' dsh-seg-visible dsh-preview-ghost'
+                } else {
+                  segClass += ' dsh-seg-collapsed'
+                }
+
                 children.push(React.createElement('span', {
-                  className: 'dsh-preview-seg' + (hovered === item.id ? ' dsh-preview-hl' : '') + (ghostClass ? ' ' + ghostClass : ''),
-                  key: 'ps_seg_' + item.id,
-                  ref: (el) => { if (el) previewSegRefs.current[item.id] = el },
-                  title: (SEGMENT_LABELS[item.id] || item.id) + (item.isGhost ? '（未启用 · 悬停动态插入预览效果）' : ' · 悬停联动下方条目'),
-                  onMouseEnter: () => handleHover(item.id),
+                  className: segClass,
+                  key: 'ps_seg_' + seg.id,
+                  ref: (el) => { if (el) previewSegRefs.current[seg.id] = el },
+                  title: (SEGMENT_LABELS[seg.id] || seg.id) + (!isEnabled ? '（未启用 · 悬停动态插入预览效果）' : ' · 悬停联动下方条目'),
+                  onMouseEnter: () => handleHover(seg.id),
                   onMouseLeave: handleUnhover,
-                }, item.text + (item.isGhost ? ' ✦' : '')))
+                }, sample + (!isEnabled ? ' ✦' : '')))
               })
               return children
             }
