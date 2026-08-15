@@ -319,15 +319,37 @@ body[data-ds-dark-theme] .dsh-preview-dock {
 }
 .dsh-drop-ind {
   position: absolute;
-  left: 8px;
-  right: 8px;
-  height: 2.5px;
-  border-radius: 2px;
+  left: 6px;
+  right: 6px;
+  height: 3px;
+  border-radius: 3px;
   background: var(--dsw-alias-brand-primary);
   pointer-events: none;
-  transition: top 0.12s ease;
-  box-shadow: 0 0 8px var(--dsw-alias-brand-primary);
+  transition: top 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 10px var(--dsw-alias-brand-primary), 0 0 20px rgba(193, 95, 60, 0.6);
   z-index: 20;
+}
+.dsh-drop-ind::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -3.5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--dsw-alias-brand-primary);
+  box-shadow: 0 0 6px var(--dsw-alias-brand-primary);
+}
+.dsh-drop-ind::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: -3.5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--dsw-alias-brand-primary);
+  box-shadow: 0 0 6px var(--dsw-alias-brand-primary);
 }
 .dsh-comp-row {
   display: flex;
@@ -338,10 +360,10 @@ body[data-ds-dark-theme] .dsh-preview-dock {
   border: 1px solid var(--dsw-alias-border-l1);
   background: var(--dsw-alias-bg-module-platform);
   cursor: grab;
-  will-change: transform;
+  will-change: transform, box-shadow, border-color;
   user-select: none;
   box-shadow: 0 1px 3px rgba(35, 30, 20, 0.03);
-  transition: opacity 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s, background 0.15s;
+  transition: opacity 0.2s, border-color 0.25s, box-shadow 0.25s, transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.1), background 0.2s;
 }
 .dsh-comp-row:hover {
   background: var(--dsw-alias-button-floating-hover);
@@ -366,13 +388,43 @@ body[data-ds-dark-theme] .dsh-comp-row.dsh-on {
   border-color: var(--dsw-alias-brand-primary) !important;
   background: linear-gradient(90deg, rgba(193, 95, 60, 0.16) 0%, rgba(193, 95, 60, 0.06) 100%) !important;
   box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary), 0 4px 18px rgba(193, 95, 60, 0.30) !important;
-  transform: translateY(-1px) scale(1.008);
+  transform: translateY(-1.5px) scale(1.01);
+  animation: dsh-select-pulse 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes dsh-select-pulse {
+  0% {
+    transform: scale(0.985);
+    box-shadow: 0 0 0 0 rgba(193, 95, 60, 0.6);
+  }
+  60% {
+    transform: translateY(-2px) scale(1.015);
+    box-shadow: 0 0 0 4px rgba(193, 95, 60, 0.25), 0 6px 20px rgba(193, 95, 60, 0.35);
+  }
+  100% {
+    transform: translateY(-1.5px) scale(1.01);
+    box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary), 0 4px 18px rgba(193, 95, 60, 0.30);
+  }
 }
 body[data-ds-dark-theme] .dsh-comp-row.dsh-selected {
   background: linear-gradient(90deg, rgba(217, 119, 87, 0.24) 0%, rgba(217, 119, 87, 0.09) 100%) !important;
   border-color: #D97757 !important;
   box-shadow: 0 0 0 2px #D97757, 0 4px 22px rgba(217, 119, 87, 0.40) !important;
-  transform: translateY(-1px) scale(1.008);
+  transform: translateY(-1.5px) scale(1.01);
+  animation: dsh-select-pulse-dark 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes dsh-select-pulse-dark {
+  0% {
+    transform: scale(0.985);
+    box-shadow: 0 0 0 0 rgba(217, 119, 87, 0.7);
+  }
+  60% {
+    transform: translateY(-2px) scale(1.015);
+    box-shadow: 0 0 0 4px rgba(217, 119, 87, 0.3), 0 6px 24px rgba(217, 119, 87, 0.45);
+  }
+  100% {
+    transform: translateY(-1.5px) scale(1.01);
+    box-shadow: 0 0 0 2px #D97757, 0 4px 22px rgba(217, 119, 87, 0.40);
+  }
 }
 .dsh-comp-row.dsh-selected .dsh-comp-label {
   color: var(--dsw-alias-brand-primary) !important;
@@ -382,15 +434,66 @@ body[data-ds-dark-theme] .dsh-comp-row.dsh-selected {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 6px;
   background: var(--dsw-alias-brand-primary);
   color: #FFFFFF !important;
   font-size: 11px;
   font-weight: 700;
   line-height: 14px;
-  box-shadow: 0 2px 6px rgba(193, 95, 60, 0.35);
+  box-shadow: 0 2px 8px rgba(193, 95, 60, 0.4);
   user-select: none;
+  animation: dsh-badge-pop 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes dsh-badge-pop {
+  0% { transform: scale(0.65); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.dsh-comp-row.dsh-dragging {
+  opacity: 0.92;
+  transform: scale(1.02) translateY(-2px);
+  box-shadow: 0 16px 36px rgba(193, 95, 60, 0.28), 0 0 0 2px var(--dsw-alias-brand-primary) !important;
+  z-index: 10;
+  cursor: grabbing !important;
+  filter: brightness(1.04);
+}
+body[data-ds-dark-theme] .dsh-comp-row.dsh-dragging {
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 0 0 2px #D97757, 0 0 18px rgba(217, 119, 87, 0.35) !important;
+  filter: brightness(1.08);
+}
+.dsh-comp-row.dsh-just-moved {
+  animation: dsh-settle-glow 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes dsh-settle-glow {
+  0% {
+    border-color: var(--dsw-alias-brand-primary);
+    box-shadow: 0 0 0 2.5px var(--dsw-alias-brand-primary), 0 6px 22px rgba(193, 95, 60, 0.4);
+    transform: scale(1.015);
+    filter: brightness(1.06);
+  }
+  100% {
+    border-color: var(--dsw-alias-border-l2);
+    box-shadow: 0 1px 3px rgba(35, 30, 20, 0.03);
+    transform: scale(1);
+    filter: none;
+  }
+}
+body[data-ds-dark-theme] .dsh-comp-row.dsh-just-moved {
+  animation: dsh-settle-glow-dark 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes dsh-settle-glow-dark {
+  0% {
+    border-color: #D97757;
+    box-shadow: 0 0 0 2.5px #D97757, 0 6px 26px rgba(217, 119, 87, 0.5);
+    transform: scale(1.015);
+    filter: brightness(1.12);
+  }
+  100% {
+    border-color: #383731;
+    box-shadow: none;
+    transform: scale(1);
+    filter: none;
+  }
 }
 .dsh-multi-bar {
   display: flex;
@@ -445,15 +548,6 @@ body[data-ds-dark-theme] .dsh-multi-bar {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-.dsh-comp-row.dsh-dragging {
-  opacity: 0.85;
-  transform: scale(1.015);
-  box-shadow: 0 12px 28px rgba(35, 30, 20, 0.16);
-  z-index: 10;
-}
-body[data-ds-dark-theme] .dsh-comp-row.dsh-dragging {
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
 }
 .dsh-comp-grip {
   color: var(--dsw-alias-label-tertiary);
@@ -1143,6 +1237,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [selectedIds, setSelectedIds] = React.useState(new Set())
             const selectedIdsRef = React.useRef(new Set())
             selectedIdsRef.current = selectedIds
+            const [justMovedIds, setJustMovedIds] = React.useState(new Set())
             const [diag, setDiag] = React.useState(null)
             // 修订 34：客户端全量用量面板（浏览器侧全量折叠 = 唯一权威源）
             const [fullUsage, setFullUsage] = React.useState(null)
@@ -1196,7 +1291,7 @@ body[data-ds-dark-theme] .dsh-price-input {
               raf(() => {
                 for (const el of els) {
                   if (el === null || el === undefined) continue
-                  el.style.transition = 'transform 240ms cubic-bezier(0.34, 1.3, 0.64, 1)'
+                  el.style.transition = 'transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1.1)'
                   el.style.transform = 'translateY(0)'
                 }
               })
@@ -1239,6 +1334,8 @@ body[data-ds-dark-theme] .dsh-price-input {
                 segmentsRef.current = next
                 setSegments(next)
                 setCompositionState(next)
+                setJustMovedIds(new Set(movingItems.map((m) => m.id)))
+                ctx.timeout(() => setJustMovedIds(new Set()), 800)
               } else {
                 if (to === from || to === from + 1) return
                 const next = current.slice()
@@ -1247,6 +1344,8 @@ body[data-ds-dark-theme] .dsh-price-input {
                 segmentsRef.current = next
                 setSegments(next)
                 setCompositionState(next)
+                setJustMovedIds(new Set([item.id]))
+                ctx.timeout(() => setJustMovedIds(new Set()), 800)
               }
             }
             const computeDropIndex = (e) => {
@@ -1299,6 +1398,8 @@ body[data-ds-dark-theme] .dsh-price-input {
               flipTops.current = rowRefs.current.map((el) => el === null || el === undefined ? 0 : el.getBoundingClientRect().top)
               const next = segments.slice()
               const tmp = next[index]; next[index] = next[j]; next[j] = tmp
+              setJustMovedIds(new Set([tmp.id]))
+              ctx.timeout(() => setJustMovedIds(new Set()), 800)
               apply(next)
             }
             const setEnabled = (index, enabled) => {
@@ -1471,6 +1572,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                 : ''
               const isSelected = selectedIds.has(seg.id)
               const isDraggingThis = dragFrom === index || (dragFrom !== null && isSelected && selectedIds.has(effectiveSegments[dragFrom]?.id))
+              const isJustMoved = justMovedIds.has(seg.id)
               let selectGrip = React.createElement('span', { className: 'dsh-comp-grip' }, '⠿')
               if (isSelected) {
                 const orderedSelected = effectiveSegments.filter((s) => selectedIds.has(s.id))
@@ -1480,7 +1582,7 @@ body[data-ds-dark-theme] .dsh-price-input {
               return React.createElement(
                 'div',
                 {
-                  className: 'dsh-comp-row' + (seg.enabled === true ? ' dsh-on' : ' dsh-off') + (isSelected ? ' dsh-selected' : '') + (isDraggingThis ? ' dsh-dragging' : ''),
+                  className: 'dsh-comp-row' + (seg.enabled === true ? ' dsh-on' : ' dsh-off') + (isSelected ? ' dsh-selected' : '') + (isDraggingThis ? ' dsh-dragging' : '') + (isJustMoved ? ' dsh-just-moved' : ''),
                   key: seg.id,
                   ref: (el) => { rowRefs.current[index] = el },
                   draggable: true,
