@@ -23,7 +23,47 @@ return {
         const tb = ctx.locale.bind('dsh-bottom-bar')
         styles.insert('.dsh-stats-root{text-align:center;max-width:var(--dsh-chat-content-width);box-sizing:border-box;width:100%;padding:4px calc(var(--dsh-composer-side-clearance) + 16px) 0px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;margin:0 auto;font-size:12px;line-height:20px;display:block;overflow:hidden}.dsh-stats-sep{color:var(--dsw-alias-separator-primary);margin:0 10px}.dsh-stats-empty{height:0;padding:0;overflow:hidden;line-height:0}')
         styles.insert('.dsh-tip{position:fixed;z-index:100;width:max-content;max-width:50vw;padding:3px 7px;border-radius:8px;background:var(--dsw-alias-tooltip-bg);color:var(--dsw-static-neutral-bluish-00);font-size:13px;line-height:20px;white-space:pre-line;overflow-wrap:break-word;pointer-events:none;animation:dsh-tip-in .15s var(--ds-ease-in-out)}.dsh-tip[data-side=top]{transform:translate(-50%,-100%)}.dsh-tip[data-side=bottom]{transform:translate(-50%)}@keyframes dsh-tip-in{0%{opacity:0}}@media(prefers-reduced-motion:reduce){.dsh-tip{animation:none}}')
-        styles.insert('.dsh-comp-page{display:flex;flex-direction:column;gap:10px;padding:6px 0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary)}.dsh-comp-desc{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px;margin:0}.dsh-comp-loading{display:flex;flex-direction:column;gap:8px;padding:6px 0}.dsh-comp-loading-bar{height:14px;border-radius:7px;background:var(--dsw-alias-interactive-bg-hover);opacity:.6;animation:dsh-loading-pulse 1.2s ease-in-out infinite}.dsh-comp-loading-bar:nth-child(2){width:85%;animation-delay:.15s}.dsh-comp-loading-bar:nth-child(3){width:60%;animation-delay:.3s}.dsh-comp-warn{color:var(--dsw-alias-danger-foreground, var(--dsw-alias-label-tertiary));font-size:12px;line-height:18px;background:var(--dsw-alias-danger-bg, var(--dsw-alias-interactive-bg-hover));border-radius:6px;padding:4px 8px}@keyframes dsh-loading-pulse{0%,100%{opacity:.35}50%{opacity:.85}}.dsh-preview{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:10px;border:1px dashed var(--dsw-alias-border-l2);background:var(--dsw-alias-interactive-bg-hover)}.dsh-preview-label{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}.dsh-preview-line{text-align:center;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsh-preview-seg{transition:background .15s,color .15s;border-radius:4px;padding:0 3px}.dsh-preview-hl{background:var(--dsw-alias-brand-primary);color:var(--dsw-static-neutral-bluish-00)}.dsh-preview-bubble{align-self:center;max-width:100%;padding:3px 7px;border-radius:8px;background:var(--dsw-alias-tooltip-bg);color:var(--dsw-static-neutral-bluish-00);font-size:13px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsh-comp-row{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:8px;border:1px solid transparent;background:var(--dsw-alias-interactive-bg-hover);cursor:grab;will-change:transform;transition:opacity .15s,border-color .15s,box-shadow .15s}.dsh-comp-row:active{cursor:grabbing}.dsh-comp-row.dsh-on{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 1px var(--dsw-alias-brand-primary) inset}.dsh-comp-row.dsh-off{opacity:.5}.dsh-comp-row.dsh-dragging{opacity:.65}.dsh-comp-grip{color:var(--dsw-alias-label-tertiary);user-select:none}.dsh-comp-label{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsh-comp-row.dsh-on .dsh-comp-label{color:var(--dsw-alias-label-primary);font-weight:500}.dsh-comp-row.dsh-off .dsh-comp-label{color:var(--dsw-alias-label-tertiary)}.dsh-switch{position:relative;width:34px;height:20px;flex:none;cursor:pointer}.dsh-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}.dsh-switch input:disabled{cursor:not-allowed}.dsh-switch-track{position:absolute;inset:0;border-radius:10px;background:var(--dsw-alias-interactive-bg-active);transition:background .15s}.dsh-switch input:checked+.dsh-switch-track{background:var(--dsw-alias-brand-primary)}.dsh-switch input:disabled+.dsh-switch-track{opacity:.4}.dsh-switch-knob{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--dsw-static-neutral-bluish-00);transition:transform .15s;pointer-events:none}.dsh-switch input:checked+.dsh-switch-track+.dsh-switch-knob{transform:translateX(14px)}.dsh-comp-btn{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);border-radius:6px;padding:2px 8px;font-size:12px;line-height:18px;cursor:pointer}.dsh-comp-btn:hover{border-color:var(--dsw-alias-brand-primary)}.dsh-comp-btn:disabled{opacity:.4;cursor:default}.dsh-comp-reset{margin-top:2px;align-self:flex-start}.dsh-price-row{display:flex;align-items:center;gap:6px}.dsh-price-model{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsh-price-input{width:60px;font-size:12px;padding:2px 4px;border-radius:4px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.dsh-price-add{display:flex;gap:6px;margin-top:8px}.dsh-prices{display:flex;flex-direction:column;gap:6px}.dsh-price-label{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}.dsh-price-head{display:flex;align-items:center;gap:6px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}')
+        styles.insert('.dsh-comp-page{display:flex;flex-direction:column;gap:10px;padding:6px 0;font-size:13px;line-height:20px;color' +
+            ':var(--dsw-alias-label-secondary)}.dsh-comp-desc{color:var(--dsw-alias-label-tertiary);font-size:12px;line-hei' +
+            'ght:18px;margin:0}.dsh-comp-loading{display:flex;flex-direction:column;gap:8px;padding:6px 0}.dsh-comp-loading' +
+            '-bar{height:14px;border-radius:7px;background:var(--dsw-alias-interactive-bg-hover);opacity:.6;animation:dsh-l' +
+            'oading-pulse 1.2s ease-in-out infinite}.dsh-comp-loading-bar:nth-child(2){width:85%;animation-delay:.15s}.dsh-' +
+            'comp-loading-bar:nth-child(3){width:60%;animation-delay:.3s}.dsh-comp-warn{color:var(--dsw-alias-danger-foregr' +
+            'ound, var(--dsw-alias-label-tertiary));font-size:12px;line-height:18px;background:var(--dsw-alias-danger-bg, v' +
+            'ar(--dsw-alias-interactive-bg-hover));border-radius:6px;padding:4px 8px}@keyframes dsh-loading-pulse{0%,100%{o' +
+            'pacity:.35}50%{opacity:.85}}.dsh-preview{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-r' +
+            'adius:10px;border:1px dashed var(--dsw-alias-border-l2);background:var(--dsw-alias-interactive-bg-hover)}.dsh-' +
+            'preview-label{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}.dsh-preview-line{text-ali' +
+            'gn:center;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:20px;white-space:nowrap;overflow:hi' +
+            'dden;text-overflow:ellipsis}.dsh-preview-seg{transition:background .15s,color .15s;border-radius:4px;padding:0' +
+            ' 3px}.dsh-preview-hl{background:var(--dsw-alias-brand-primary);color:var(--dsw-static-neutral-bluish-00)}.dsh-' +
+            'preview-bubble{align-self:center;max-width:100%;padding:3px 7px;border-radius:8px;background:var(--dsw-alias-t' +
+            'ooltip-bg);color:var(--dsw-static-neutral-bluish-00);font-size:13px;line-height:20px;white-space:nowrap;overfl' +
+            'ow:hidden;text-overflow:ellipsis}.dsh-comp-row{display:flex;align-items:center;gap:10px;padding:6px 10px;borde' +
+            'r-radius:8px;border:1px solid transparent;background:var(--dsw-alias-interactive-bg-hover);cursor:grab;will-ch' +
+            'ange:transform;transition:opacity .15s,border-color .15s,box-shadow .15s}.dsh-comp-row:active{cursor:grabbing}' +
+            '.dsh-comp-row.dsh-on{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 1px var(--dsw-alias-brand-pr' +
+            'imary) inset}.dsh-comp-row.dsh-off{opacity:.5}.dsh-comp-row.dsh-dragging{opacity:.65}.dsh-comp-grip{color:var(' +
+            '--dsw-alias-label-tertiary);user-select:none}.dsh-comp-label{flex:1;white-space:nowrap;overflow:hidden;text-ov' +
+            'erflow:ellipsis}.dsh-comp-row.dsh-on .dsh-comp-label{color:var(--dsw-alias-label-primary);font-weight:500}.dsh' +
+            '-comp-row.dsh-off .dsh-comp-label{color:var(--dsw-alias-label-tertiary)}.dsh-switch{position:relative;width:34' +
+            'px;height:20px;flex:none;cursor:pointer}.dsh-switch input{position:absolute;opacity:0;width:100%;height:100%;m' +
+            'argin:0;cursor:pointer}.dsh-switch input:disabled{cursor:not-allowed}.dsh-switch-track{position:absolute;inset' +
+            ':0;border-radius:10px;background:var(--dsw-alias-interactive-bg-active);transition:background .15s}.dsh-switch' +
+            ' input:checked+.dsh-switch-track{background:var(--dsw-alias-brand-primary)}.dsh-switch input:disabled+.dsh-swi' +
+            'tch-track{opacity:.4}.dsh-switch-knob{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:' +
+            '50%;background:var(--dsw-static-neutral-bluish-00);transition:transform .15s;pointer-events:none}.dsh-switch i' +
+            'nput:checked+.dsh-switch-track+.dsh-switch-knob{transform:translateX(14px)}.dsh-comp-btn{border:1px solid var(' +
+            '--dsw-alias-border-l2);background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);b' +
+            'order-radius:6px;padding:2px 8px;font-size:12px;line-height:18px;cursor:pointer}.dsh-comp-btn:hover{border-col' +
+            'or:var(--dsw-alias-brand-primary)}.dsh-comp-btn:disabled{opacity:.4;cursor:default}.dsh-comp-reset{margin-top:' +
+            '2px;align-self:flex-start}.dsh-price-row{display:flex;align-items:center;gap:6px}.dsh-price-model{flex:1;min-w' +
+            'idth:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsh-price-input{width:60px;font-size:12px;pa' +
+            'dding:2px 4px;border-radius:4px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-interac' +
+            'tive-bg-hover);color:var(--dsw-alias-label-primary)}.dsh-price-add{display:flex;gap:6px;margin-top:8px}.dsh-pr' +
+            'ices{display:flex;flex-direction:column;gap:6px}.dsh-price-label{font-size:12px;line-height:18px;color:var(--d' +
+            'sw-alias-label-tertiary)}.dsh-price-head{display:flex;align-items:center;gap:6px;font-size:12px;line-height:18' +
+            'px;color:var(--dsw-alias-label-tertiary)}')
         styles.insert('.dsh-comp-select{appearance:auto;-webkit-appearance:auto;font-size:12px;padding:2px 4px;border-radius:4px;background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}')
         styles.insert('.dsh-seg{cursor:pointer;border-radius:3px;padding:0 2px;margin:0 -2px;transition:background .12s,color .12s}.dsh-seg:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.dsh-detail{position:fixed;z-index:101;min-width:190px;max-width:min(430px,82vw);max-height:45vh;overflow:auto;padding:8px 12px;border-radius:10px;background:var(--dsw-alias-tooltip-bg);color:var(--dsw-static-neutral-bluish-00);font-size:12px;line-height:18px;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);animation:dsh-tip-in .15s var(--ds-ease-in-out);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.35) transparent}.dsh-detail::-webkit-scrollbar{width:5px;height:5px}.dsh-detail::-webkit-scrollbar-thumb{background:rgba(255,255,255,.35);border-radius:3px}.dsh-detail::-webkit-scrollbar-track{background:transparent}.dsh-detail[data-side=top]{transform:translate(-50%,-100%)}.dsh-detail[data-side=bottom]{transform:translate(-50%)}.dsh-detail-title{font-weight:600;margin-bottom:4px}.dsh-detail-row{display:flex;justify-content:space-between;gap:18px}.dsh-detail-row+.dsh-detail-row{margin-top:2px}.dsh-detail-sep{border-top:1px solid rgba(255,255,255,.18);margin:6px 0}.dsh-detail-total{font-weight:600}.dsh-detail-model{font-weight:600;margin-top:6px}.dsh-detail-empty{opacity:.75;margin-top:2px}')
         styles.insert('.dsh-comp-list{position:relative;display:flex;flex-direction:column;gap:6px}.dsh-drop-ind{position:absolute;left:8px;right:8px;height:2px;border-radius:1px;background:var(--dsw-alias-brand-primary);pointer-events:none;transition:top .12s ease;box-shadow:0 0 6px var(--dsw-alias-brand-primary)}')
@@ -241,27 +281,9 @@ return {
             const stats = React.useMemo(() => projected ?? deriveStats(settledNodes), [projected, settledNodes])
             const usageActive = usage !== null && usage !== undefined && (billedInputTokens(usage) > 0 || usage.outputTokens > 0)
             const cacheHitPct = usageActive ? cacheHitPercent(usage) : null
-            const liveDeltaOf = (estimate, usage) => {
-              if (typeof estimate !== 'object' || estimate === null) return null
-              const ls = estimate.lastSample
-              if (typeof ls !== 'object' || ls === null) return null
-              if (typeof usage !== 'object' || usage === null) return null
-              const p = Array.isArray(estimate.priced) ? estimate.priced.find((x) => x.model === ls.model) : undefined
-              if (p === undefined) return null
-              const bucketCost = (b) => b.uncachedInput / 1e6 * p.priceIn
-                + b.cacheRead / 1e6 * (p.priceCacheRead === null || p.priceCacheRead === undefined ? p.priceIn : p.priceCacheRead)
-                + b.cacheWrite / 1e6 * (p.priceCacheWrite === null || p.priceCacheWrite === undefined ? p.priceIn : p.priceCacheWrite)
-                + b.output / 1e6 * p.priceOut
-              const delta = bucketCost({
-                uncachedInput: usage.uncachedInputTokens || 0,
-                output: usage.outputTokens || 0,
-                cacheRead: usage.cacheReadTokens || 0,
-                cacheWrite: usage.cacheWriteTokens || 0,
-              }) - bucketCost(ls)
-              if (!(delta > 0)) return null
-              return { currency: p.currency, delta }
-            }
-            const live = liveDeltaOf(estimate, usage)
+            // 修订 33：删除 liveDelta——修订 30-32 对账已把账本拉平到客户端全量，
+            // 再按「usage 全量 − lastSample 单步」加增量会把全量重复计入（底栏 ≈ 2× 明细）；
+            // 底栏费用 = 明细面板 = 账本（对账后即全量），单一数据源。
             const separate = mode === 'separate'
             const builders = {
               counts: () => stats.steps > 0 ? t('stats.counts', { turns: stats.turns, steps: stats.steps }) : null,
@@ -278,7 +300,7 @@ return {
               }) : null,
               cost: () => {
                 if (estimate === null) return usageActive ? '计算中…' : null
-                return costGroup(estimate, precision, live)
+                return costGroup(estimate, precision, null)
               },
             }
             // ⚠️ 修订 25：三函数必须在 children 构造之前定义（const TDZ）
