@@ -379,23 +379,24 @@ body[data-ds-dark-theme] .dsh-preview-seg:hover {
   color: var(--dsw-alias-brand-primary);
   border-color: transparent;
 }
-/* 修订 73：高亮风格 CSS 开关——默认「白天=原版实心 / 夜间=tint」（中性品牌色
-   主题夜间实心会白底白字，即修订 72 修的问题）。主题/用户想改，在 .dsh-comp-page
-   上覆盖下面三个变量即可：
+/* 修订 73/74：高亮风格 CSS 开关——默认「全部实心 + bg-base 文字」（用户：实心
+   才好认,tint 高亮和没高亮没差别;夜间不要发光,白天保留原版光晕）。主题/用户想
+   改,在 .dsh-comp-page 上覆盖下面四个变量即可：
      全部 tint → --dsh-hl-fill: color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
                  --dsh-hl-text: var(--dsw-alias-brand-primary);
+                 --dsh-hl-glow: none;
                  --dsh-switch-fill: color-mix(in srgb, var(--dsw-alias-brand-primary) 50%, transparent);
-     全部实心 → --dsh-hl-fill: var(--dsw-alias-brand-primary);
-                 --dsh-hl-text: #FFFFFF;
-                 --dsh-switch-fill: var(--dsw-alias-brand-primary); */
+     夜间也要光 → body[data-ds-dark-theme] .dsh-comp-page { --dsh-hl-glow: 0 0 12px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent), 0 2px 6px color-mix(in srgb, var(--dsw-alias-brand-primary) 30%, transparent); } */
 .dsh-comp-page {
   --dsh-hl-fill: var(--dsw-alias-brand-primary);
-  --dsh-hl-text: #FFFFFF;
+  --dsh-hl-text: var(--dsw-alias-bg-base);
+  --dsh-hl-glow: 0 0 12px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent), 0 2px 6px color-mix(in srgb, var(--dsw-alias-brand-primary) 30%, transparent);
   --dsh-switch-fill: var(--dsw-alias-brand-primary);
 }
 body[data-ds-dark-theme] .dsh-comp-page {
-  --dsh-hl-fill: color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
-  --dsh-hl-text: var(--dsw-alias-brand-primary);
+  --dsh-hl-fill: var(--dsw-alias-brand-primary);
+  --dsh-hl-text: var(--dsw-alias-bg-base);
+  --dsh-hl-glow: none;
   --dsh-switch-fill: color-mix(in srgb, var(--dsw-alias-brand-primary) 50%, transparent);
 }
 .dsh-preview-hl {
@@ -403,7 +404,7 @@ body[data-ds-dark-theme] .dsh-comp-page {
   color: var(--dsh-hl-text) !important;
   border-color: var(--dsw-alias-brand-primary) !important;
   font-weight: 500 !important;
-  box-shadow: 0 0 12px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent), 0 2px 6px color-mix(in srgb, var(--dsw-alias-brand-primary) 30%, transparent) !important;
+  box-shadow: var(--dsh-hl-glow) !important;
 }
 .dsh-preview-ghost {
   border: 1px dashed var(--dsw-alias-brand-primary) !important;
@@ -689,7 +690,7 @@ body[data-ds-dark-theme] .dsh-multi-bar {
 .dsh-multi-bar-action:hover {
   background: var(--dsh-hl-fill);
   border-color: var(--dsw-alias-brand-primary);
-  color: #FFFFFF;
+  color: var(--dsh-hl-text);
 }
 .dsh-price-template-card {
   display: flex;
