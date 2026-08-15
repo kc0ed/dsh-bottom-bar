@@ -433,3 +433,10 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **根因**：面板是**纯消费端**——数据来自底栏 dock 每 1s 心跳捎带给 host 的 `lastClientUsage`（estimateCost handler 里缓存），面板自己却每 **3s** 才 `getClientUsage` 一次。打开设置时错过心跳 → 最坏等 3s 轮询 + 1s 心跳 ≈ 4s 空白。
 - **修法**：面板轮询 3s→**1s**，与生产端心跳同频，最坏等待从 4s 降到 1s。RPC 是 host 侧纯缓存读取（无折叠、无 IO），1s 频率无压力。
 - **教训**：凡是「A 产生数据、B 消费数据」的 UI，消费端轮询周期必须 ≤ 生产端心跳周期，否则感知延迟 = 两者之和；改延迟前先画数据流，找「生产频率」和「消费频率」的错配。
+
+## 42. 查主题真身：tooltip-bg 才是官方弹层底，bg-overlay 是遮罩（修订 43，2026-08-15）
+- **翻车复盘**：修订 39/40 基于一个错误前提——以为用户主题把浅色 tooltip-bg 改成了纯白（实际并没有）。用户连报「背景变黑」「背景透明」后，直接读**实际运行的** `dsh-claude-theme/lib/theme.css` 拿到真身：
+  - `--dsw-alias-tooltip-bg`：浅 `#26221B` / 深 `#2E2D28` —— **明暗都是实心深色**（官方 Tooltip 设计：黑条恒深），配静态白字完全自洽；
+  - `--dsw-alias-bg-overlay`：浅 `rgba(44,39,32,.08)` / 深 `rgba(255,255,255,.08)` —— **8% alpha 遮罩层**，当弹层背景就是透明！
+- **修法**：回到官方配对 `background:var(--dsw-alias-tooltip-bg); color:var(--dsw-static-neutral-bluish-00)`（分隔线/滚动条恢复白半透明），背景再加 `rgba(24,24,27,.95)` 兜底（防主题删别名）。
+- **教训**：① Inspect 的 Theme 注册表只描述 token 意图（「Overlay and popover background」），主题作者实际实现要读主题自己的 CSS——`node_modules/<theme>/lib/theme.css` 才是真身；② `*-overlay` 系 token 是半透明遮罩，不是面板表面色，**弹层/面板用 `tooltip-bg`**；③ 「跟随官方」= 跟随官方组件的配对（tooltip-bg + 静态白字），不是跟随注册表描述；④ 用户报告「变黑/变透明」这类**前后矛盾**的症状时，先怀疑自己的改动方向，直接查运行包源码，别继续在 token 名字上推理。
