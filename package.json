@@ -7,11 +7,25 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ],
+      "platform": "web"
     }
   },
   "exports": {
     ".": {
       "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
     },
     "./typert": {
       "default": "./lib/typert.host.js"
@@ -23,8 +37,10 @@
   },
   "files": [
     "lib/index.js",
+    "lib/client.js",
     "lib/typert.host.js",
-    "lib/typert.remote-client.js"
+    "lib/typert.remote-client.js",
+    "cordis.patch.yml"
   ],
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.1",
