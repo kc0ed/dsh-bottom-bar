@@ -1,11 +1,13 @@
 // ══════════════════════════════════════════════════════════════════
-// dsh-bottom-bar · 动态 Host 半体（与线上运行版本同步，修订 27）
+// dsh-bottom-bar · 动态 Host 半体（与线上运行版本同步，修订 28）
 // ──
 // 由动态插件 cost-1 的 host 半体固化（harness.handle / ctx.get 服务）。
 // 关键事实（2026-08-15 实测）：
-// · 动态 Host 的 fs 是会话沙箱（workspace-write），写 ~/.dsh 被拒
-//   （FS_SANDBOX_DENIED）；沙箱 workspaceRoot 是 telegram-saver（非会话
-//   工作区）——账本/配置实际写在 <workspaceRoot>/.dsh-bottom-bar/。
+// · 动态 Host 的 fs 是会话沙箱（workspace-write），写 ~/.dsh 被默认策略
+//   拒绝（FS_SANDBOX_DENIED）。修订 28 起：账本/配置写官方目录
+//   ~/.dsh/（settings 文档同目录）——writeText 每调用盖会话自身权限
+//   stamp（danger-full-access，本会话 permission 预设即 danger-full-access，
+//   围栏对 danger 模式原样放行）；回退链保留工作区目录。
 //   诊断 handler 暴露 defaultMode/workspaceRoot/resolve 与逐策略写入探测。
 // · request/context 事件仅「模型变更时」追加，订阅前可能从未收到 →
 //   lastModel 不能只靠事件流；改用实时会话 session.contextFold（懒折叠
@@ -139,7 +141,20 @@ return {
         }
       }
     }
-    // ── 存储路径 + 诊断（修订 21/22） ──
+    // ── 修订 28：存储位置——官方 ~/.dsh 目录优先（settings 文档同目录），
+    // 沙箱默认策略拒绝 ~/.dsh → 写入带会话自身权限 stamp（danger-full-access，
+    // 本会话 permission 预设即 danger-full-access）；回退链保留工作区目录。 ──
+    let officialStoreDir = null
+    try {
+      const settingsSvc = ctx.get('settings')
+      if (settingsSvc !== undefined) {
+        const doc = await settingsSvc.prepareDocument()
+        if (typeof doc === 'string' && doc.length > 0) {
+          const dir = doc.replace(/[\\/][^\\/]*$/, '')
+          if (dir.length > 0) officialStoreDir = dir
+        }
+      }
+    } catch (err) { /* ignore */ }
     let workspaceRoot = null
     let sandboxDefaultMode = null
     let sandboxResolvedMode = null
@@ -182,32 +197,35 @@ return {
         return { ok: false, error: message, code }
       }
     }
-    const probePolicy = (mode) => ({ mode, workspaceRoot: workspaceRoot === null ? undefined : workspaceRoot })
-    // 写入统一走这里：多级降级（子目录→根目录，默认策略→显式策略）并记录诊断
+    const dangerPolicy = () => ({ mode: 'danger-full-access', workspaceRoot: workspaceRoot === null ? undefined : workspaceRoot })
+    const wsWritePolicy = () => ({ mode: 'workspace-write', workspaceRoot: workspaceRoot === null ? undefined : workspaceRoot })
+    // 写入顺序：官方目录（danger stamp）→ 工作区链（默认 → ws-write → danger）
     const writeStoreFile = async (relativeName, content) => {
       fsAvailability = ctx.get('fs') === undefined ? 'missing' : 'available'
-      if (fsAvailability === 'missing' || workspaceRoot === null) {
-        recordAttempt(relativeName + '@no-fs-or-root', { ok: false, error: 'fs missing or workspaceRoot null', code: null })
+      if (fsAvailability === 'missing' || (workspaceRoot === null && officialStoreDir === null)) {
+        recordAttempt(relativeName + '@no-fs-or-root', { ok: false, error: 'fs missing or no root', code: null })
         return false
       }
-      const dirs = storeDir !== null && storeDir !== workspaceRoot ? [storeDir, workspaceRoot] : [workspaceRoot]
-      const policies = [
-        { label: 'default', policy: undefined },
-        { label: 'ws-write', policy: probePolicy('workspace-write') },
-        { label: 'danger', policy: probePolicy('danger-full-access') },
-      ]
-      for (const dir of dirs) {
-        for (const p of policies) {
-          const outcome = await tryWrite(dir, relativeName, content, p.policy)
-          recordAttempt(relativeName + '@' + dir.replace(/^.*[\\/]/, '') + '/' + p.label, outcome)
-          if (outcome.ok) {
-            if (storeDir !== dir && dirs.length > 1) {
-              storeDir = dir
-              ledgerFile = storeDir + '/ledger.json'
-              configFile = storeDir + '/composition.json'
-            }
-            return true
+      const attempts = []
+      if (officialStoreDir !== null) attempts.push({ dir: officialStoreDir, label: 'official', policy: dangerPolicy() })
+      const fallbackDirs = []
+      if (storeDir !== null && storeDir !== officialStoreDir) fallbackDirs.push(storeDir)
+      if (workspaceRoot !== null && workspaceRoot !== officialStoreDir && fallbackDirs.indexOf(workspaceRoot) === -1) fallbackDirs.push(workspaceRoot)
+      for (const dir of fallbackDirs) {
+        attempts.push({ dir, label: 'store', policy: undefined })
+        attempts.push({ dir, label: 'store-ws', policy: wsWritePolicy() })
+        attempts.push({ dir, label: 'store-danger', policy: dangerPolicy() })
+      }
+      for (const a of attempts) {
+        const outcome = await tryWrite(a.dir, relativeName, content, a.policy)
+        recordAttempt(relativeName + '@' + a.label, outcome)
+        if (outcome.ok) {
+          if (storeDir !== a.dir) {
+            storeDir = a.dir
+            ledgerFile = storeDir + '/cost-estimate.ledger.json'
+            configFile = storeDir + '/cost-estimate.composition.json'
           }
+          return true
         }
       }
       return false
@@ -223,8 +241,32 @@ return {
           if (info === undefined) storeDir = workspaceRoot
         } catch (err) { storeDir = workspaceRoot }
       }
-      ledgerFile = storeDir + '/ledger.json'
-      configFile = storeDir + '/composition.json'
+      ledgerFile = storeDir + '/cost-estimate.ledger.json'
+      configFile = storeDir + '/cost-estimate.composition.json'
+    }
+    // 读取候选：官方目录（新名）→ 工作区（新旧名）——旧文件作为迁移源
+    const readCandidates = (names) => {
+      const out = []
+      if (officialStoreDir !== null) for (const n of names) out.push(officialStoreDir + '/' + n)
+      if (storeDir !== null && storeDir !== officialStoreDir) for (const n of names) out.push(storeDir + '/' + n)
+      if (workspaceRoot !== null && workspaceRoot !== officialStoreDir && workspaceRoot !== storeDir) {
+        for (const n of names) out.push(workspaceRoot + '/' + n)
+      }
+      return out
+    }
+    const readFirstExisting = async (paths) => {
+      const fsSvc = ctx.get('fs')
+      if (fsSvc === undefined) return null
+      for (const path of paths) {
+        if (path === null) continue
+        try {
+          const target = await fsSvc.resolve(path)
+          const info = await fsSvc.stat(target)
+          if (info === undefined) continue
+          return { path, text: await fsSvc.readText(target) }
+        } catch (err) { /* try next */ }
+      }
+      return null
     }
     // 修订 27：价格按模型 id 查（支持未来 渠道@模型 覆盖）
     const priceOf = (model) => {
@@ -282,25 +324,20 @@ return {
       }
       return { totals, priced, unpriced, hasUsage: anyTokens, lastSample }
     }
-    // ── 修订 20：自研持久化账本（工作区 .dsh-bottom-bar/ledger.json） ──
+    // ── 修订 20：自研持久化账本（官方 ~/.dsh/cost-estimate.ledger.json） ──
     let ledger = null
     let dirtySessions = new Set()
     const loadLedger = async () => {
       if (ledger !== null) return
       ledger = { version: 1, sessions: {} }
-      if (ledgerFile === null) return
-      const fsSvc = ctx.get('fs')
-      if (fsSvc === undefined) return
+      const found = await readFirstExisting(readCandidates(['cost-estimate.ledger.json', 'ledger.json']))
+      if (found === null) return
       try {
-        const target = await fsSvc.resolve(ledgerFile)
-        const info = await fsSvc.stat(target)
-        if (info === undefined) return
-        const text = await fsSvc.readText(target)
-        const parsed = JSON.parse(text)
+        const parsed = JSON.parse(found.text)
         if (parsed !== null && typeof parsed === 'object' && parsed.sessions !== null && typeof parsed.sessions === 'object') {
           ledger = parsed
         }
-      } catch (err) { /* 首次无文件/损坏：保持空账本 */ }
+      } catch (err) { /* 损坏：保持空账本 */ }
     }
     const serializeState = (state) => {
       const models = {}
@@ -311,7 +348,7 @@ return {
     }
     const writeLedger = async () => {
       if (ledger === null) return
-      await writeStoreFile('ledger.json', JSON.stringify({ version: 1, updatedAt: new Date().toISOString(), sessions: ledger.sessions }, null, 2))
+      await writeStoreFile('cost-estimate.ledger.json', JSON.stringify({ version: 1, updatedAt: new Date().toISOString(), sessions: ledger.sessions }, null, 2))
     }
     const persistSession = (sessionId) => {
       const st = liveStates.get(sessionId)
@@ -353,7 +390,6 @@ return {
           const sid = session && typeof session.id === 'string' ? session.id : null
           if (sid === null) return
           const st = liveStateOf(sid)
-          // 修订 26/27：实时会话补渠道+模型（request/context 仅变更追加）
           const route = currentRouteOf(session)
           if (route !== null && (st.lastModel === null || st.lastModel === '?')) {
             st.lastModel = route.model
@@ -467,7 +503,6 @@ return {
       try {
         await loadConfig()
         const st = liveStateOf(sessionId)
-        // 修订 26/27：实时会话取渠道+模型 + 愈合历史归因
         try {
           const sessionsSvc = ctx.get('sessions')
           const live = sessionsSvc === undefined ? undefined : sessionsSvc.get(sessionId)
@@ -497,12 +532,13 @@ return {
       return {
         fs: fsAvailability,
         sandbox: { defaultMode: sandboxDefaultMode, workspaceRoot, resolved },
+        officialStoreDir,
         storeDir,
         ledgerSessions: ledger === null ? 0 : Object.keys(ledger.sessions).length,
         attempts: storeAttempts.slice(),
       }
     })
-    // ── 组装配置 + 价格：持久化（工作区写入，兼容读 ~/.dsh） ──
+    // ── 组装配置 + 价格：持久化（官方目录写入，工作区兼容读取） ──
     const SEGMENT_IDS = ['counts', 'llm', 'toolCall', 'ttft', 'throughput', 'cacheHit', 'tokens', 'cost']
     const MODES = ['separate', 'combined']
     const DEFAULT_MODE = 'separate'
@@ -514,15 +550,8 @@ return {
     let configPrices = null
     let compositionPersisted = false
     let legacyConfigFile = null
-    const settingsSvc = ctx.get('settings')
-    if (settingsSvc !== undefined) {
-      try {
-        const doc = await settingsSvc.prepareDocument()
-        if (typeof doc === 'string' && doc.length > 0) {
-          legacyConfigFile = doc.replace(/[\\/][^\\/]*$/, '') + '/cost-estimate.composition.json'
-        }
-      } catch (err) { /* ignore */ }
-    }
+    // 修订 28：官方目录即 settings 文档同目录；旧工作区文件作为读取迁移源
+    if (officialStoreDir !== null) legacyConfigFile = officialStoreDir + '/cost-estimate.composition.json'
     const bucketNum = (v) => {
       if (v === null || v === undefined || v === '') return undefined
       const n = Number(v)
@@ -578,8 +607,12 @@ return {
     }
     const loadConfig = async () => {
       if (compositionCache !== null) return
-      const fromWorkspace = await readConfigFrom(configFile)
-      const loaded = fromWorkspace !== null ? fromWorkspace : await readConfigFrom(legacyConfigFile)
+      // 读取顺序：官方目录 → 工作区目录（新旧文件名都试）
+      let loaded = null
+      for (const path of readCandidates(['cost-estimate.composition.json', 'composition.json'])) {
+        loaded = await readConfigFrom(path)
+        if (loaded !== null) break
+      }
       if (loaded !== null) {
         compositionCache = loaded.segments
         compositionMode = loaded.mode
@@ -600,8 +633,8 @@ return {
       if (tooltip !== undefined) tooltipMode = tooltip === 'always' ? 'always' : 'auto'
       if (precision !== undefined) precisionMode = precision === 'full' ? 'full' : 'compact'
       if (prices !== undefined) configPrices = prices
-      if (configFile === null) return false
-      const ok = await writeStoreFile('composition.json', JSON.stringify({
+      if (officialStoreDir === null && configFile === null) return false
+      const ok = await writeStoreFile('cost-estimate.composition.json', JSON.stringify({
         version: 4,
         updatedAt: new Date().toISOString(),
         mode: compositionMode,
