@@ -1249,14 +1249,15 @@ body[data-ds-dark-theme] .dsh-price-input {
             const children = []
             lineGroups.forEach((group, i) => {
               if (i > 0) { children.push(React.createElement('span', { className: 'dsh-stats-sep', 'aria-hidden': true, key: 'sep' + i }, '|')); children.push(' ') }
-              // 修订 82/84：峰谷分段状态类——渠道轴:priced(官方+计价)=胶囊+脉冲,
-              // 仅参考=低调次级色;时段轴:高峰时价格单独标深色(贵),空闲正常
+              // 修订 82/84/87：峰谷分段状态类——胶囊背景条件=「计费开关开 ∧ 高峰
+              // 时段」(用户拍板:谷期不用管);非官方/未计价保持低调参考样式
               let segClass = 'dsh-seg'
               let peakPriceText = ''
               if (group.id === 'peak' && estimate !== null && estimate.peak !== undefined && estimate.peak.enabled) {
-                if (estimate.peak.priced) {
-                  segClass += estimate.peak.window === 'peak' ? ' dsh-seg-peak' : ' dsh-seg-offpeak'
-                } else {
+                const pk = estimate.peak
+                if (pk.billing === true && pk.window === 'peak') {
+                  segClass += ' dsh-seg-peak'
+                } else if (pk.priced !== true) {
                   segClass += ' dsh-seg-ref'
                 }
                 const sp = group.text.lastIndexOf(' ')
