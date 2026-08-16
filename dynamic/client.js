@@ -1005,19 +1005,20 @@ body[data-ds-dark-theme] .dsh-multi-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 2px 0;
+  padding: 3px 0;
 }
 .dsh-price-model {
   flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 110px;
+  white-space: normal;
+  word-break: break-all;
+  line-height: 18px;
   font-weight: 500;
   font-size: 13px;
   color: var(--dsw-alias-label-primary);
 }
 .dsh-price-input {
+  box-sizing: border-box;
   width: 68px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -2155,12 +2156,12 @@ body[data-ds-dark-theme] .dsh-price-input {
             const hasPreviewSegs = previewDockTitle !== ''
             const priceRows = Array.isArray(prices) ? prices.map((p) => React.createElement('div', { className: 'dsh-price-row', key: p.model },
               React.createElement('span', { className: 'dsh-price-model', title: p.model }, p.model),
-              React.createElement('select', { className: 'dsh-comp-select', value: p.currency, onChange: (e) => updatePrice(p.model, { currency: e.target.value }) }, ['USD', 'CNY'].map((c) => React.createElement('option', { value: c, key: c }, c))),
+              React.createElement('select', { className: 'dsh-comp-select', style: { width: 66, boxSizing: 'border-box' }, value: p.currency, onChange: (e) => updatePrice(p.model, { currency: e.target.value }) }, ['USD', 'CNY'].map((c) => React.createElement('option', { value: c, key: c }, c))),
               React.createElement('input', { className: 'dsh-price-input', type: 'number', step: '0.01', value: p.in, title: '输入', onChange: (e) => updatePrice(p.model, { in: num(e.target.value) }) }),
               React.createElement('input', { className: 'dsh-price-input', type: 'number', step: '0.01', value: (p.cacheRead === undefined || p.cacheRead === null) ? '' : p.cacheRead, title: '缓存读（留空=无此桶）', onChange: (e) => updatePrice(p.model, { cacheRead: numOrUndef(e.target.value) }) }),
               React.createElement('input', { className: 'dsh-price-input', type: 'number', step: '0.01', value: (p.cacheWrite === undefined || p.cacheWrite === null) ? '' : p.cacheWrite, title: '缓存写（留空=无此桶）', onChange: (e) => updatePrice(p.model, { cacheWrite: numOrUndef(e.target.value) }) }),
               React.createElement('input', { className: 'dsh-price-input', type: 'number', step: '0.01', value: p.out, title: '输出', onChange: (e) => updatePrice(p.model, { out: num(e.target.value) }) }),
-              React.createElement('button', { className: 'dsh-comp-btn', title: p.builtin ? '恢复默认' : '删除该模型', onClick: () => removePrice(p.model) }, p.builtin ? '↺' : '×'),
+              React.createElement('button', { className: 'dsh-comp-btn', style: { width: 32, padding: '3px 4px', boxSizing: 'border-box' }, title: p.builtin ? '恢复默认' : '删除该模型', onClick: () => removePrice(p.model) }, p.builtin ? '↺' : '×'),
             )) : []
             const rows = effectiveSegments.map((seg, index) => {
               const sampleDef = PREVIEW_TEXTS[seg.id]
@@ -2324,12 +2325,12 @@ body[data-ds-dark-theme] .dsh-price-input {
                 React.createElement('span', { className: 'dsh-price-label' }, '价格表（每 1M tokens）：内置 DeepSeek / Claude / GPT / Gemini / Qwen 官方标准价格。不同渠道（如 opencode-go / 免费镜像）若未单独配置价格，将自动按模型名模糊继承默认价格；您亦可在此新增或覆盖自定义价格。'),
                 React.createElement('div', { className: 'dsh-price-head' },
                   React.createElement('span', { className: 'dsh-price-model' }, '模型'),
-                  React.createElement('span', { style: { width: 58 } }, '币种'),
-                  React.createElement('span', { style: { width: 60 } }, '输入'),
-                  React.createElement('span', { style: { width: 60 } }, '缓存读'),
-                  React.createElement('span', { style: { width: 60 } }, '缓存写'),
-                  React.createElement('span', { style: { width: 60 } }, '输出'),
-                  React.createElement('span', { style: { width: 24 } }, ''),
+                  React.createElement('span', { style: { width: 66 } }, '币种'),
+                  React.createElement('span', { style: { width: 68 } }, '输入'),
+                  React.createElement('span', { style: { width: 68 } }, '缓存读'),
+                  React.createElement('span', { style: { width: 68 } }, '缓存写'),
+                  React.createElement('span', { style: { width: 68 } }, '输出'),
+                  React.createElement('span', { style: { width: 32 } }, ''),
                 ),
                 priceRows,
                 (() => {
