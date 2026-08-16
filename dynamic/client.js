@@ -129,6 +129,24 @@ return {
 .dsh-seg:active {
   transform: scale(0.97);
 }
+/* 修订 82：峰谷时段分段特效——高峰=品牌色胶囊+柔和脉冲光晕,空闲=次级色（降噪） */
+.dsh-seg-peak {
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
+  color: var(--dsw-alias-brand-primary) !important;
+  font-weight: 600;
+  animation: dsh-peak-pulse 2.4s ease-in-out infinite;
+}
+.dsh-seg-offpeak {
+  color: var(--dsw-alias-label-secondary);
+  opacity: 0.9;
+}
+@keyframes dsh-peak-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--dsw-alias-brand-primary) 32%, transparent); }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dsh-seg-peak { animation: none; }
+}
 
 .dsh-tip {
   position: fixed;
@@ -996,7 +1014,7 @@ body[data-ds-dark-theme] .dsh-price-input {
           counts: '12 轮 · 45 步', llm: 'LLM 2m10s', toolCall: '工具调用时长 45s', ttft: '首 token 平均 1.8s', throughput: '34.2 tok/s',
           cacheHit: { separate: '缓存命中 5.93M tok', combined: '缓存命中 97%' },
           tokens: { separate: '输入 96.3K tok · 输出 72.8K tok', combined: '输入 6.0M tok · 输出 72.8K tok' },
-          cost: '预估 ¥0.36', peak: '⏱ 高峰',
+          cost: '预估 ¥0.36', peak: '⏱ 高峰 ¥3.0/1M',
         }
         const DEFAULT_COMPOSITION = SEGMENT_IDS.map((id) => ({ id, enabled: true }))
         let compositionValue = null
@@ -1155,7 +1173,9 @@ body[data-ds-dark-theme] .dsh-price-input {
               // 修订 78/79：峰谷提醒分段——提醒开关开启即显示（与是否计价无关）
               peak: () => {
                 if (estimate === null || estimate.peak === undefined || !estimate.peak.enabled) return null
-                return estimate.peak.window === 'peak' ? '⏱ 高峰' : '⏱ 空闲'
+                const inPrice = estimate.peak.window === 'peak' ? estimate.peak.peakIn : estimate.peak.baseIn
+                const priceText = inPrice !== null && inPrice !== undefined ? compactMoney(inPrice, 'CNY', 'compact') + '/1M' : ''
+                return (estimate.peak.window === 'peak' ? '⏱ 高峰 ' : '⏱ 空闲 ') + priceText
               },
             }
             // ⚠️ 修订 25：三函数必须在 children 构造之前定义（const TDZ）
@@ -1196,8 +1216,13 @@ body[data-ds-dark-theme] .dsh-price-input {
             const children = []
             lineGroups.forEach((group, i) => {
               if (i > 0) { children.push(React.createElement('span', { className: 'dsh-stats-sep', 'aria-hidden': true, key: 'sep' + i }, '|')); children.push(' ') }
+              // 修订 82：峰谷分段附加状态类——高峰=品牌色胶囊+脉冲光晕,空闲=次级色
+              let segClass = 'dsh-seg'
+              if (group.id === 'peak' && estimate !== null && estimate.peak !== undefined && estimate.peak.enabled) {
+                segClass += estimate.peak.window === 'peak' ? ' dsh-seg-peak' : ' dsh-seg-offpeak'
+              }
               children.push(React.createElement('span', {
-                className: 'dsh-seg', key: group.id, title: '点击查看明细',
+                className: segClass, key: group.id, title: '点击查看明细',
                 onClick: (e) => onSegClick(group.id, e.currentTarget),
                 onDoubleClick: cancelSegClick,
               }, group.text))
@@ -1302,10 +1327,15 @@ body[data-ds-dark-theme] .dsh-price-input {
                 case 'peak': {
                   if (estimate === null || estimate.peak === undefined || !estimate.peak.enabled) return null
                   const tzLabel = estimate.peak.tz === undefined || estimate.peak.tz === 'system' ? '跟随系统' : estimate.peak.tz
+                  const money = (v) => (v === null || v === undefined ? '—' : compactMoney(v, 'CNY', 'compact') + '/1M')
                   return [
                     ['当前时段', estimate.peak.window === 'peak' ? '高峰' : '空闲'],
                     ['高峰时段', '9:00-12:00 / 14:00-18:00'],
                     ['空闲时段', '其余时间（高峰一半）'],
+                    ['高峰输入价', money(estimate.peak.peakIn)],
+                    ['空闲输入价', money(estimate.peak.baseIn)],
+                    ['高峰输出价', money(estimate.peak.peakOut)],
+                    ['空闲输出价', money(estimate.peak.baseOut)],
                     ['时区', tzLabel],
                     ['适用渠道', '仅 DeepSeek 官方（deepseek）'],
                   ]

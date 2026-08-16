@@ -520,3 +520,8 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **根因**：① host 自己的 `SEGMENT_IDS` 常量没加 'peak'（只加了 client 的）→ normalizeSegments 把 'peak' 当未知 id 过滤;② normalizeSegments 只过滤不补全 → 用户磁盘上的旧配置（8 段）加载后仍是 8 段,新分段永远不出现,只能靠「恢复默认」才看得到。
 - **修法**：host SEGMENT_IDS 补 'peak';normalizeSegments **自动把缺失的分段按默认启用追加**（新功能无需重置配置;peak 自隐藏所以无打扰）。
 - **教训**：① 新增分段/选项时,**host 和 client 两份 SEGMENT_IDS/配置定义要同步改**,漏一处就是「client 有 UI、host 不认」;② 配置归一化函数（normalizeXxx）应该是「过滤未知 + 补全缺失」而不是只过滤——只过滤会让旧配置永远错过新字段;③ 用户问「显示在哪」先怀疑「旧配置里根本没有这个元素」,而不是怀疑渲染。
+
+## 57. 状态分段要「有价有特效」:价格入分段 + 高峰/空闲差异化样式（修订 82，2026-08-15）
+- **需求**：①「把价格也写进来——高峰价和低谷价」;②「高峰能不能给一点特别的效果?低谷也是」。
+- **实现**：① host 在 estimateCost 里取**第一个官方渠道模型**,用 `resolvePrice(key, cfg, {peakEnabled:false})` 拿基价(其返回对象自带 `.peak` 价组,零额外查找) → `est.peak` 增加 `baseIn/baseOut/peakIn/peakOut`;② 分段文本 `⏱ 高峰 ¥3.0/1M`(按当前窗口取对应输入价),详情弹层加四行(高峰/空闲 × 输入/输出);③ 特效:高峰分段 = **品牌色 16% 胶囊底 + 品牌色文字 + 2.4s 柔和脉冲光晕**(box-shadow 扩散,`prefers-reduced-motion` 关闭),空闲 = 次级色 + 降透明度——状态一眼可分。
+- **教训**：① 展示型状态(高峰/空闲)要「自带可读信息(价格)+ 视觉语义(颜色/动效)」,否则就是干巴巴的文字;② 取「基价 vs 高峰价」两组数字时,`resolvePrice(peakEnabled:false)` 返回的对象自带 `.peak` 字段,一次调用拿全两组,别为取数再写第二套解析;③ 动效遵守 `prefers-reduced-motion`(用户系统开了减弱动效就别脉冲)。
