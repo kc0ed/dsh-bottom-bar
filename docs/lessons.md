@@ -638,3 +638,10 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **`lib/models_dev_prices.json` 也不在**——`pricing.js` 运行时 `resolve(__dirname, 'models_dev_prices.json')` 读价格表，漏了它价格表直接空。
 - **修法**：`files` 白名单改成 `["lib", "cordis.patch.yml"]`（整个 lib 目录），以后 lib 里加文件不用再维护清单。
 - **教训**：① 发布前必须 `npm pack --dry-run` 看 Tarball Contents，逐文件核对运行时依赖（import 链 + `resolve(__dirname, ...)` 的静态资源），别只看「包能 publish」;② `files` 白名单是**最容易静默翻车**的地方——本机开发用 junction 直连仓库，`lib/` 全文件永远在,永远测不出漏文件,只有装 tarball 的人才炸;③ 终极验证 = 临时 `DSH_HOME` + 干净 profile + `dsh plugin add <tgz>` + 真实 boot（25s 窗口看进程没早退），一条龙记在 §25/§22。
+
+## 77. 底栏一行装不下 → 允许换行（修订 98，2026-08-16）
+
+- **用户反馈**：「95 tok/s 输入 1.8M tok · 输出 2.9M tok 缓存命中 551M tok 预估 ¥43.31 这个底栏到这里就没了,但后面其实还有一些内容……能不能让地盘变大一点」——`.dsh-stats-root` 是 `white-space:nowrap + text-overflow:ellipsis + overflow:hidden`,内容超宽直接掐尾巴。
+- **修法**：容器改 `white-space:normal`(删 ellipsis/overflow);`.dsh-seg`(分段 span)加 `white-space:nowrap` 保持原子——断点只落在分段之间的空格上,行尾自然挂 `|`,分段不会从中间断开(如「预估 ¥43.31」)。
+- **truncated 检测的连带**：悬停黑条靠 `el.scrollWidth > el.clientWidth` 触发,换行后恒为 false,黑条不再自动弹(内容本来就全可见了);「始终显示」开关仍可用。
+- **教训**：① 「一行放不下」的正解是**允许换行 + 元素级 nowrap**,而不是调小字号/压缩间距;② 换行容器里,原子单元(分段)必须显式 nowrap,否则长文本会在中间断行,比截断更难看;③ 设置页预览区用自己的 `dsh-preview-*` 体系,改真实 dock 的 CSS 不会波及预览——改样式前先确认类名是否两处共用。
