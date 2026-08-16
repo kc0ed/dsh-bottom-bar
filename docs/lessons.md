@@ -514,3 +514,9 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **根因**：峰谷三状态（peakEnabled/peakRemind/peakTimezone）只在**挂载时的 getConfig 轮询**里同步,`saveOptions` 的 `.then(result)` 里**漏了回写**——host 其实已保存成功,但 React 状态从不更新 → 开关看起来是死的;其他开关能动,是因为它们的返回处理里有 setMode/setPrecision 等回写。
 - **修法**：`saveOptions` 的 `.then` 补齐三个峰谷状态 + peakNow 的回写（与 getConfig 轮询同一套代码）。reset 的 `.then` 之前已补齐。
 - **教训**：**新增状态时必须同时更新三处消费点**——getConfig 轮询、saveOptions 返回、reset 返回;只加轮询不加回写 = 「保存成功但 UI 无反应」。写新状态前先 grep 所有 `.then((result) =>` 的同步块,列个清单逐处补。
+
+## 56. 新分段对老配置不可见 → normalizeSegments 自动补全（修订 81，2026-08-15）
+- **症状**：用户重启后问「高峰期显示在哪里了」——「峰谷时段」分段在底栏和设置列表里都不存在。
+- **根因**：① host 自己的 `SEGMENT_IDS` 常量没加 'peak'（只加了 client 的）→ normalizeSegments 把 'peak' 当未知 id 过滤;② normalizeSegments 只过滤不补全 → 用户磁盘上的旧配置（8 段）加载后仍是 8 段,新分段永远不出现,只能靠「恢复默认」才看得到。
+- **修法**：host SEGMENT_IDS 补 'peak';normalizeSegments **自动把缺失的分段按默认启用追加**（新功能无需重置配置;peak 自隐藏所以无打扰）。
+- **教训**：① 新增分段/选项时,**host 和 client 两份 SEGMENT_IDS/配置定义要同步改**,漏一处就是「client 有 UI、host 不认」;② 配置归一化函数（normalizeXxx）应该是「过滤未知 + 补全缺失」而不是只过滤——只过滤会让旧配置永远错过新字段;③ 用户问「显示在哪」先怀疑「旧配置里根本没有这个元素」,而不是怀疑渲染。
