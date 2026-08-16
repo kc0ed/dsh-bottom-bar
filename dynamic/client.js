@@ -983,6 +983,8 @@ body[data-ds-dark-theme] .dsh-price-input {
           for (const key of Object.keys(totals)) parts.push(compactMoney(totals[key], key, precision))
           let text = '预估 ' + (parts.length > 0 ? parts.join(' + ') : '—')
           if (estimate.unpriced.length > 0) text += ' (+' + estimate.unpriced.length + ' 无价)'
+          // 修订 75：峰谷定价开启时标注当前时段
+          if (estimate.peak !== undefined && estimate.peak.enabled) text += estimate.peak.window === 'peak' ? ' · 高峰' : ' · 空闲'
           return text
         }
         const SEGMENT_IDS = ['counts', 'llm', 'toolCall', 'ttft', 'throughput', 'cacheHit', 'tokens', 'cost']
@@ -1298,6 +1300,13 @@ body[data-ds-dark-theme] .dsh-price-input {
             const costDetail = () => {
               if (typeof estimate !== 'object' || estimate === null || !estimate.hasUsage) return null
               const nodes = []
+              // 修订 75：峰谷定价开启时首行标注当前时段
+              if (estimate.peak !== undefined && estimate.peak.enabled) {
+                nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'peak' },
+                  React.createElement('span', null, '当前时段'),
+                  React.createElement('span', null, estimate.peak.window === 'peak' ? '高峰 · 9:00-12:00/14:00-18:00' : '空闲时段'),
+                ))
+              }
               if (Array.isArray(estimate.priced)) {
                 for (const p of estimate.priced) {
                   nodes.push(React.createElement('div', { className: 'dsh-detail-model', key: 'm' + p.model }, p.model))
@@ -1382,6 +1391,9 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [mode, setMode] = React.useState(initPageCfg && (initPageCfg.mode === 'separate' || initPageCfg.mode === 'combined') ? initPageCfg.mode : 'separate')
             const [tooltipAlways, setTooltipAlways] = React.useState(initPageCfg ? initPageCfg.tooltip === 'always' : false)
             const [precision, setPrecision] = React.useState(initPageCfg && initPageCfg.precision === 'full' ? 'full' : 'compact')
+            // 修订 75：峰谷定价开关 + 当前时段指示（DeepSeek 2026-08-17 起）
+            const [peakEnabled, setPeakEnabled] = React.useState(initPageCfg ? initPageCfg.peakEnabled === true : false)
+            const [peakNow, setPeakNow] = React.useState(initPageCfg && (initPageCfg.peakNow === 'peak' || initPageCfg.peakNow === 'offpeak') ? initPageCfg.peakNow : null)
             const [prices, setPrices] = React.useState(null)
             const [pricesOpen, setPricesOpen] = React.useState(false)
             const [vendorTpl, setVendorTpl] = React.useState('auto')
@@ -1399,7 +1411,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             const dropIndexRef = React.useRef(null)
             const listRef = React.useRef(null)
             const segmentsRef = React.useRef(null)
-            const optionsRef = React.useRef({ mode: 'separate', tooltip: 'auto', precision: 'compact' })
+            const optionsRef = React.useRef({ mode: 'separate', tooltip: 'auto', precision: 'compact', peakEnabled: false })
             const rowRefs = React.useRef([])
             const flipTops = React.useRef(null)
             const previewDockRef = React.useRef(null)
@@ -1464,6 +1476,8 @@ body[data-ds-dark-theme] .dsh-price-input {
                   if (result.mode === 'separate' || result.mode === 'combined') { setMode(result.mode); optionsRef.current.mode = result.mode }
                   if (typeof result.tooltip === 'string') { setTooltipAlways(result.tooltip === 'always'); optionsRef.current.tooltip = result.tooltip }
                   if (result.precision === 'compact' || result.precision === 'full') { setPrecision(result.precision); optionsRef.current.precision = result.precision }
+                  if (typeof result.peakEnabled === 'boolean') { setPeakEnabled(result.peakEnabled); optionsRef.current.peakEnabled = result.peakEnabled }
+                  if (result.peakNow === 'peak' || result.peakNow === 'offpeak') setPeakNow(result.peakNow)
                   setLoaded(true)
                 })
                 .catch(() => {})
@@ -1477,7 +1491,11 @@ body[data-ds-dark-theme] .dsh-price-input {
             React.useEffect(() => {
               let alive = true
               const timer = ctx.interval(() => {
-                host.call('get-client-usage').then((result) => { if (alive && result.usage) setFullUsage(result.usage) }).catch(() => {})
+                host.call('get-client-usage').then((result) => {
+                  if (!alive || !result.usage) return
+                  setFullUsage(result.usage)
+                  if (result.usage.peak !== undefined && (result.usage.peak.window === 'peak' || result.usage.peak.window === 'offpeak')) setPeakNow(result.usage.peak.window)
+                }).catch(() => {})
               }, 1000)
               return () => { alive = false; timer() }
             }, [])
@@ -1487,7 +1505,7 @@ body[data-ds-dark-theme] .dsh-price-input {
               return () => timer()
             }, [loaded])
             segmentsRef.current = segments
-            optionsRef.current = { mode, tooltip: tooltipAlways ? 'always' : 'auto', precision }
+            optionsRef.current = { mode, tooltip: tooltipAlways ? 'always' : 'auto', precision, peakEnabled }
             React.useLayoutEffect(() => {
               if (flipTops.current === null) return
               const tops = flipTops.current
@@ -1669,6 +1687,8 @@ body[data-ds-dark-theme] .dsh-price-input {
             const toggleMode = () => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, mode: mode === 'separate' ? 'combined' : 'separate' }) }
             const toggleTooltip = () => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, tooltip: tooltipAlways ? 'auto' : 'always' }) }
             const togglePrecision = () => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, precision: precision === 'full' ? 'compact' : 'full' }) }
+            // 修订 75：峰谷定价开关
+            const togglePeak = () => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, peakEnabled: !peakEnabled }) }
             const reset = () => {
               if (!Array.isArray(segments)) return
               host.call('reset-composition').then((result) => {
@@ -1676,6 +1696,8 @@ body[data-ds-dark-theme] .dsh-price-input {
                 if (result.mode === 'separate' || result.mode === 'combined') { setMode(result.mode); optionsRef.current.mode = result.mode }
                 if (typeof result.tooltip === 'string') { setTooltipAlways(result.tooltip === 'always'); optionsRef.current.tooltip = result.tooltip }
                 if (result.precision === 'compact' || result.precision === 'full') { setPrecision(result.precision); optionsRef.current.precision = result.precision }
+                if (typeof result.peakEnabled === 'boolean') { setPeakEnabled(result.peakEnabled); optionsRef.current.peakEnabled = result.peakEnabled }
+                if (result.peakNow === 'peak' || result.peakNow === 'offpeak') setPeakNow(result.peakNow)
               }).catch(() => {})
             }
             const updatePrice = (model, patch) => {
@@ -1692,7 +1714,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             }
             const VENDOR_TEMPLATES = [
               { id: 'auto', name: '⚡ 智能自动识别（按模型名匹配厂商公式）' },
-              { id: 'deepseek-v4', name: '🐳 DeepSeek V4 (1 : 2 : 0.02 : 0.02) · CNY', currency: 'CNY', out: 2, read: 0.02, write: 0.02 },
+              { id: 'deepseek-v4', name: '🐳 DeepSeek V4 空闲价 (1 : 3 : 0.033 : 0) · CNY', currency: 'CNY', out: 3, read: 0.0333, write: 0 },
               { id: 'deepseek-v3', name: '🐳 DeepSeek V3/R1 (1 : 4 : 0.25 : 1.0) · CNY', currency: 'CNY', out: 4, read: 0.25, write: 1.0 },
               { id: 'claude', name: '⚡ Anthropic Claude (1 : 5 : 0.1 : 1.25) · USD', currency: 'USD', out: 5, read: 0.1, write: 1.25 },
               { id: 'openai', name: '🧠 OpenAI GPT/o-series (1 : 4 : 0.5 : 1.25) · USD', currency: 'USD', out: 4, read: 0.5, write: 1.25 },
@@ -1926,6 +1948,15 @@ body[data-ds-dark-theme] .dsh-price-input {
                   React.createElement('span', { className: 'dsh-switch-knob' }),
                 ),
               ),
+              React.createElement('div', { className: 'dsh-comp-row' + (peakEnabled ? ' dsh-on' : ' dsh-off') },
+                React.createElement('span', { className: 'dsh-comp-label' }, 'DeepSeek 峰谷定价' + (peakNow !== null ? (peakNow === 'peak' ? ' · 当前高峰' : ' · 当前空闲') : '')),
+                React.createElement('label', { className: 'dsh-switch' },
+                  React.createElement('input', { type: 'checkbox', checked: peakEnabled, disabled: offline, onChange: togglePeak }),
+                  React.createElement('span', { className: 'dsh-switch-track' }),
+                  React.createElement('span', { className: 'dsh-switch-knob' }),
+                ),
+              ),
+              React.createElement('p', { className: 'dsh-comp-desc' }, 'DeepSeek 自 2026-08-17 00:00（北京时间）起实行峰谷定价：高峰时段 9:00-12:00 / 14:00-18:00，空闲时段为高峰一半。开启后按当前时段计价，底栏费用段与明细面板会标注「高峰 / 空闲」。'),
               React.createElement('div', { className: 'dsh-preview' },
                 React.createElement('div', { className: 'dsh-preview-header' },
                   React.createElement('span', { className: 'dsh-preview-label' }, '底栏效果预览'),
@@ -2055,6 +2086,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                   ? React.createElement('span', { style: { fontSize: 11, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' } }, '等待底栏轮询…')
                   : React.createElement(React.Fragment, null,
                     React.createElement('span', { style: { fontWeight: 600, fontSize: 12, lineHeight: '18px', color: 'var(--dsw-alias-label-primary)' } }, fullUsage.model),
+                    fullUsage.peak !== undefined && fullUsage.peak.enabled && React.createElement('span', { style: { fontSize: 11, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' } }, fullUsage.peak.window === 'peak' ? '当前:高峰时段(9:00-12:00 / 14:00-18:00)' : '当前:空闲时段'),
                     React.createElement('div', { style: fullDivider }),
                     React.createElement('div', { style: fullGrid },
                       React.createElement('div', { style: fullCell },
