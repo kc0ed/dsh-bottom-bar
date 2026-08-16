@@ -508,3 +508,9 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **用户需求**：① 峰谷时区下拉并入开关行;② 「我可能单纯想开启峰谷提醒...不一定额外扣费,就希望它显示出来」——提醒显示和峰谷计价是两件事。
 - **实现**：两个开关——`peakEnabled`（峰谷计价:按高峰价算钱,官方渠道白名单生效）+ `peakRemind`（峰谷提醒:仅显示 ⏱ 高峰/空闲 与时段标注,与渠道无关,不影响价格）;`est.peak`/`usage.peak` 拆成 `{enabled:提醒, priced:计价∧官方渠道, window, tz}`——**峰谷分段/客户端全量卡行跟随 enabled,费用段后缀/明细面板时段行跟随 priced**（计价关时费用不标「高峰」,避免误导）。时区下拉并入计价开关行,配置 version 8。
 - **教训**：① 「显示什么」和「按什么算钱」是独立的用户意图,拆成两个开关各管各的,别捆一起;② 一个功能开关被拆成两个后,数据字段要跟着拆（enabled vs priced）,UI 消费方按各自语义取——费用标注必须跟 priced,不然「提醒开着但没计价」时费用段会乱标;③ UI 行内联控件（开关+下拉同一行）注意行宽,label 别太长。
+
+## 55. 新开关「点了没反应」= saveOptions 返回处理漏同步（修订 80，2026-08-15）
+- **症状**：用户「峰谷计价/峰谷提醒两个开关都无法开关」——点击后 UI 无任何变化。其他开关（mode/precision）正常。
+- **根因**：峰谷三状态（peakEnabled/peakRemind/peakTimezone）只在**挂载时的 getConfig 轮询**里同步,`saveOptions` 的 `.then(result)` 里**漏了回写**——host 其实已保存成功,但 React 状态从不更新 → 开关看起来是死的;其他开关能动,是因为它们的返回处理里有 setMode/setPrecision 等回写。
+- **修法**：`saveOptions` 的 `.then` 补齐三个峰谷状态 + peakNow 的回写（与 getConfig 轮询同一套代码）。reset 的 `.then` 之前已补齐。
+- **教训**：**新增状态时必须同时更新三处消费点**——getConfig 轮询、saveOptions 返回、reset 返回;只加轮询不加回写 = 「保存成功但 UI 无反应」。写新状态前先 grep 所有 `.then((result) =>` 的同步块,列个清单逐处补。
