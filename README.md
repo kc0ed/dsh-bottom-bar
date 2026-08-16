@@ -1,4 +1,4 @@
-# dsh-bottom-bar
+# @kc0ed/dsh-bottom-bar
 
 嗯……简单说,这就是那个「底栏统计 + 预估费用」插件。
 
@@ -11,11 +11,12 @@
 
 ## 现在到哪一步了(2026-08-15 版)
 
-已经迭代到 **修订 71** 了,一路从「能跑」干到「好看」:
+已经迭代到 **修订 97** 了,一路从「能跑」干到「好看」:
 
 - ✅ **静态包**是正式形态:写进 DSH 配置后自动加载,重启不丢(你现在装的就是它)
 - ✅ **账本持久化**:用量只追加、永不重算,重启从账本恢复接着记
 - ✅ **主题跟随**:弹层、光效、高亮全走官方 token,切什么主题自动变色,绝不写死
+- ✅ **DeepSeek 峰谷定价**:9–12 点 / 14–18 点高峰价自动切换(时区可选),详情弹层里还能滑杆切模型比价
 - ✅ **速度**:底栏 1s 心跳、设置面板 1s 刷新、弹层秒出
 - ⏸️ 动态插件是历史形态(会话里跑的),除非调试否则别碰——**两个实例同时写一个账本会打架**
 
@@ -41,20 +42,40 @@
 - 账本落盘在 `~/.dsh/cost-estimate.ledger.json`,**只追加、永不重算**;客户端捎带全量用量持续对账,明细面板和底栏永远一致
 - 流式输出时费用实时跳,零等待
 
-## 安装(静态包,三步,别慌)
+## 安装(别人怎么装,就一句话)
 
-1. 进 profile 目录(如 `$DSH_HOME/profiles/web`),执行 `pnpm add <本仓库路径>`。
-   ⚠️ 路径带空格的话 pnpm 会给你造个坏的 junction——直接手动 `New-Item -ItemType Junction` 指回仓库,别在 pnpm 上死磕。
-2. 打开该 profile 的 `package.json`,把 `"dsh-bottom-bar"` 塞进 `dsh.profile.bundles` 数组:
+这是个官方标准的 **bundle 包**(`package.json` 里声明了 `dsh.bundle.patch`,profile 层栈自动识别),所以装法就是官方那条命令(前提:装了 [pnpm](https://pnpm.io/installation),`dsh plugin` 是 pnpm 转发器):
 
-   ```json
-   "dsh": { "profile": { "bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-bottom-bar"] } }
-   ```
+```bash
+# 已发布到 npm 之后(最省事):
+dsh plugin --profile web add @kc0ed/dsh-bottom-bar
 
-3. 用你平时的启动方式重启,比如 `npx -y @deepseek-ai/dsh web`(就是 127.0.0.1:3080 那个)。完了,插件行由 bundle patch 自动插入,host face 自动 contribute,客户端自挂载。
+# 或者不想等发布,直接从 GitHub 装:
+dsh plugin --profile web add github:kc0ed/dsh-bottom-bar
 
-> ⚠️ 浏览器如果还是旧样子,按 **Ctrl+Shift+R 硬刷新**——不是没装上,是缓存记性好。
+# 本地开发(就是本仓库):
+dsh plugin --profile web add link:D:/你的路径/dsh-bottom-bar
+```
+
+这条命令自动干三件事:首次用会自动初始化 profile → 在 profile 目录里跑 `pnpm add` → 装完自动把包追加进 `dsh.profile.bundles` 层清单。**装完啥都不用手改。**
+
+> 想装到别的 profile(比如 headless)就把 `web` 换成 profile 名。
+
+装完记得:
+
+- **彻底退出 DSH 再重启**(`dsh web` 前老进程得死透,不是刷新页面)
+- 浏览器 **Ctrl+Shift+R 硬刷新**——不是没装上,是缓存记性好
+- 卸载:`dsh plugin --profile web remove @kc0ed/dsh-bottom-bar`(依赖和层栈一起清)
+
 > ⚠️ 静态包生效后别再跑动态插件,两个实例写同一个账本会打架。
+
+### 给维护者:发布到 npm
+
+```bash
+cd dsh-bottom-bar
+npm login          # 账号得是 kc0ed(scope 归它管)
+npm publish        # publishConfig.access=public 已配好,scoped 包不会变成私有
+```
 
 ## 仓库结构(好奇的话)
 

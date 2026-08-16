@@ -602,3 +602,30 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **用户反馈**：先「不要加粗」(修订 96 删了字重),实测后又「这里不要搞什么框,之前加粗就行」「现在加粗就很好」——表格当前列和窗口 chips 都不要背景框,恢复加粗。
 - **修法**：`.dsh-peak-cell-hot` 恢复 `font-weight:700` + 品牌色(无背景/圆角/内边距);`.dsh-peak-range-hot` 恢复 `font-weight:600` + 品牌色(无背景/边框);居中保留。
 - **教训**：① 视觉强调手段(底色 vs 字重)的取舍**以用户实测反馈为准**,别用「可辨识度理论」替用户做决定——之前担心默认主题下加粗看不清,用户实测觉得加粗正好;② 每次视觉调整都记录用户原话,来回拉扯时以**最新实测反馈**为准,别再按上上轮的结论改。
+
+## 73. 官方插件安装机制实锤：bundle 判定 + `dsh plugin` 转发器（2026-08-16）
+
+读本机 `@deepseek-ai/dsh@0.1.0-rc.6` 源码（`lib/plugin-*.js`、`dsh-app-boot`）+ 真实 profile 结构确认的官方机制：
+
+- **插件 = bundle 包**：npm 包只要 package.json 声明 `"dsh": { "bundle": { "patch": "./cordis.patch.yml" } }` 就是 profile 层；patch 里 `- insert: [{id, name}]` 的 **`name` 必须是 npm 包名**（loader 从 profile 的 node_modules 按包名解析）。
+- **`dsh plugin --profile <名> <pnpm 参数>` = pnpm 转发器**：在 profile 目录跑 pnpm → 每次成功后**按已安装状态 reconcile** `dsh.profile.bundles`（有 `dsh.bundle` 声明的依赖自动进栈、移除自动出栈、升级后新声明自动激活）。相对路径 spec 按**调用目录**锚定。
+- **profile 结构**：`$DSH_HOME/profiles/<名>/` 下有 `package.json`（依赖 + `dsh.profile.bundles`）、`cordis.patch.yml`（用户补丁层）、`node_modules/`（pnpm 装插件）。**层顺序**：bundles 按清单序 → profile patch → `$DSH_HOME/cordis.patch.yml` → `--patch`。
+- **GUI 设置页的 Plugins 页是只读的**（`dsh-host-plugin-inventory` 官方描述 "Read-only Remote projection"），安装只能走 CLI 或手改 profile。
+- **本仓库早已是官方形态**：`dsh.bundle` 声明、cordis.patch.yml、bundles 清单、node_modules 链接逐项齐全——当初手写 package.json + pnpm 的产物与 `dsh plugin add` 等价。
+
+## 74. 包名加 scope：`@kc0ed/dsh-bottom-bar`（2026-08-16）
+
+- **为什么加**：npm 裸名全球先到先得，`dsh-bottom-bar` 这种通用名迟早撞车；官方全家都在 `@deepseek-ai/` scope 下，scoped 是生态惯例。
+- **改名联动点（漏一个就装不上）**：① `package.json` name；② `cordis.patch.yml` 的 `name:` 字段（loader 按包名解析，必须同步）；③ profile `package.json` 的**依赖键 + bundles 清单**；④ `pnpm-lock.yaml`（跑一次 `pnpm install` 自动更新）；⑤ `node_modules` 链接（scoped 要建 `node_modules/@kc0ed/` 子目录再链接）。typert 的 `package: 'dsh-bottom-bar'` 内部协议 id 与 npm 名无关，**不用改**（三处保持一致即可）。
+- **scoped 包发布必须 `publishConfig.access: "public"`**，否则 npm publish 默认按私有处理；scope 必须归 npm 账号/组织所有（`@kc0ed` 归 kc0ed 账号）。
+- **分发通道**：npm 发布后 `dsh plugin --profile web add @kc0ed/dsh-bottom-bar`；未发布可 `add github:kc0ed/dsh-bottom-bar`（仓库已提交 `lib/` + `cordis.patch.yml`，无 build 步骤，git 安装开箱即用）；本地开发 `add link:<路径>`。
+
+## 75. Windows junction 手术：pnpm 空格路径坏链接 + 进程占用（2026-08-16）
+
+改名后 `pnpm install` 在 web profile 里**只更新了 lockfile，没修 node_modules 链接**，还把一个完好 junction 重建成坏目标（`<profile>\D:\...` 拼接路径）——「路径含空格/中文时 pnpm 会造坏 junction」是已知老坑（README 老版警告过），手动手术：
+
+- **删坏链接**：`cmd rmdir` 报 exit 2、`fs.rmSync({force:true})` 静默失败（force 吞错误）——运行中的 DSH 进程占着链接时删不掉；node `fs.unlinkSync`（junction 的 unlink 只删链接不跟目标）成功。
+- **建新链接**：PowerShell `New-Item -ItemType Junction` 对含空格+中文的 target 报 ERROR_INVALID_NAME（同路径给 claude-theme 建却成功，行为不稳定）；**`node fs.symlinkSync(target, path, 'junction')` 一次成功**，是 Windows junction 手术最可靠姿势。
+- **scoped 链接**：先建 `node_modules/@kc0ed/` 目录，再在目录内建 `dsh-bottom-bar` junction 指向仓库。
+- **验证**：`Test-Path <链接>\lib\index.js` + node `readdirSync` 穿链接读目录，别信 cmd dir 的显示（不带 `\??\` 前缀也可能是好的）。
+- 换名期间旧链接删不掉没关系（bundles 清单已不含旧名，重启后 loader 不再引用），重启后补删即可。
