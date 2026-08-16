@@ -486,3 +486,9 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **需求**（用户贴官方公告）：2026-08-17 00:00 起 DeepSeek 实行峰谷定价——北京时间高峰 9:00-12:00 / 14:00-18:00，空闲=高峰一半；v4-flash 空闲 0.05/1.5/4.5、高峰 0.10/3.0/9.0；v4-pro 空闲 0.15/4.5/13.5、高峰 0.30/9.0/27.0。要一个开关 + 开启后提醒当前时段。
 - **实现**：① `pricing.js` 内置 v4-flash/pro 基价=新空闲价 + `peak` 价组字段；`resolvePrice(model, config, {peakEnabled, when})` 高峰时用 peak 覆盖（用户自定义价无 peak 时继承内置,改价不影响峰谷）；`isPeakTime`/`beijingMinutes` 用 UTC+8 硬算（无夏令时）,窗口 [9,12)/[14,18)。② host 配置 `peakEnabled`（默认 true）随 composition.json 持久化（version 4→5）;estimateCost/getClientUsage 结果带 `peak:{enabled,window}`。③ 客户端：设置页开关 + 「当前高峰/空闲」实时指示（1s 轮询带回来的 window）、底栏费用段后缀「· 高峰/· 空闲」、明细面板首行「当前时段」、客户端全量卡模型下时段行;厂商模板 deepseek-v4 更新为新空闲价比值。
 - **教训**：① 时间窗口判断用「UTC 分钟 + 固定时区偏移」而不是本地时间——服务器时区不可控,北京时间固定 UTC+8;② 峰值价格做成「基价 + peak 覆盖」而不是两套独立价格,开关关=只用基价,语义干净;③ 时段信息随已有 RPC 结果捎带（estimate/usage 加字段）,客户端不用另起轮询;④ 官方公告里的价格表先结构化（模型/桶/峰谷值）再编码,别手抄错位。
+
+## 51. 峰谷限官方渠道:provider 白名单（修订 76，2026-08-15）
+- **用户约束**：只有 DeepSeek **官方 API** 确认实行峰谷定价;其他提供商（尤其三方网关）是否透传官方价格未知 → 「暂时限定官方的未来价格」。
+- **确认事实**：DSH 官方 DeepSeek provider 名 = **`deepseek`**（dsh-llm-deepseek 插件,settings.yaml 的 `llm-deepseek` 段）;用户实际流量走 `opencode-go`/`opencode`（llm-pi-ai 网关,settings.yaml 可见）——**不是官方渠道**。
+- **实现**：配置 `peakProviders` 白名单（默认 `['deepseek']`）;`resolvePrice` 从归因键（`provider/model`）取 provider 段,不在白名单或无 provider 的键不套高峰价;`estimateCost`/`getClientUsage` 的 `peak.enabled` 改为「开关 ∧ 会话存在白名单渠道模型」——opencode-go 会话不显示时段标注（诚实:该渠道未确认适用）。
+- **教训**：① 做「按渠道差异化计费」先查实际归因键（ledger 里 `渠道/模型`）和 settings.yaml 的 provider 配置——别假设"用户用的就是官方渠道";② 渠道级功能用白名单 + 默认保守（只含官方）,确认一个加一个;③ 「不适用」要体现在 UI 上（无标注）,而不是静默按错误价格算。
