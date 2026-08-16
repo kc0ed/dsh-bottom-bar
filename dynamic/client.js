@@ -1347,7 +1347,6 @@ body[data-ds-dark-theme] .dsh-price-input {
               if (detailSeg === segId) { setDetailSeg(null); setPanelPos(null); return }
               const r = el.getBoundingClientRect()
               setPanelPlacement('top')
-              if (segId === 'peak') setPeakModelIdx(0)
               setDetailSeg(segId)
               setPanelPos({ x: r.left + r.width / 2, top: r.top, bottom: r.bottom })
             }
