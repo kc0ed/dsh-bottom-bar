@@ -492,3 +492,9 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **确认事实**：DSH 官方 DeepSeek provider 名 = **`deepseek`**（dsh-llm-deepseek 插件,settings.yaml 的 `llm-deepseek` 段）;用户实际流量走 `opencode-go`/`opencode`（llm-pi-ai 网关,settings.yaml 可见）——**不是官方渠道**。
 - **实现**：配置 `peakProviders` 白名单（默认 `['deepseek']`）;`resolvePrice` 从归因键（`provider/model`）取 provider 段,不在白名单或无 provider 的键不套高峰价;`estimateCost`/`getClientUsage` 的 `peak.enabled` 改为「开关 ∧ 会话存在白名单渠道模型」——opencode-go 会话不显示时段标注（诚实:该渠道未确认适用）。
 - **教训**：① 做「按渠道差异化计费」先查实际归因键（ledger 里 `渠道/模型`）和 settings.yaml 的 provider 配置——别假设"用户用的就是官方渠道";② 渠道级功能用白名单 + 默认保守（只含官方）,确认一个加一个;③ 「不适用」要体现在 UI 上（无标注）,而不是静默按错误价格算。
+
+## 52. 峰谷时区可配置:UTC 基准 + 默认跟随系统（修订 77，2026-08-15）
+- **用户需求**：「绑定 UTC 比较好,根据用户的系统时区处理,也设为可选时区」。
+- **实现**：`zoneMinutes(date, tz)`——内部一律从 `Date` 的 UTC 字段计算（`getUTCHours*60+getUTCMinutes+offset*60` mod 1440）;`tz` 取值 `'system'`（默认,用 `date.getHours()` 本地时间=跟随 DSH 主进程所在机器的系统时区）或 `'UTC±N'` 固定偏移;`isPeakTime(date, tz)` 传入时区。配置 `peakTimezone` 持久化（version 7）;设置页新增「峰谷时区」下拉（跟随系统 / UTC / UTC±1..12）,选项标注在开关行旁。
+- **测试抓到的 bug**：`'UTC'`（零偏移）不匹配 `^UTC([+-])\d+$` → 正则失败回退系统时区——**解析偏移的正则要单独处理零偏移特例**,否则 'UTC' 悄悄变成系统时区。
+- **教训**：① 时区判断统一「UTC 字段 + 显式偏移」,绝不直接读服务器本地时间当业务时区（环境 TZ 不可控）;② 默认值选 `'system'`（用户机器即系统）,固定偏移留给有需要的场景;③ 每个时区选项都要有测试用例,零偏移/负偏移/边界时刻（12:00/18:00 整点）全测。
