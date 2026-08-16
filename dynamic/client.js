@@ -987,16 +987,16 @@ body[data-ds-dark-theme] .dsh-price-input {
           if (estimate.peak !== undefined && estimate.peak.enabled) text += estimate.peak.window === 'peak' ? ' · 高峰' : ' · 空闲'
           return text
         }
-        const SEGMENT_IDS = ['counts', 'llm', 'toolCall', 'ttft', 'throughput', 'cacheHit', 'tokens', 'cost']
+        const SEGMENT_IDS = ['counts', 'llm', 'toolCall', 'ttft', 'throughput', 'cacheHit', 'tokens', 'cost', 'peak']
         const SEGMENT_LABELS = {
           counts: '轮/步', llm: 'LLM 时长', toolCall: '工具调用时长', ttft: '首 token 平均',
-          throughput: '吞吐 tok/s', cacheHit: '缓存命中', tokens: '输入/输出 token', cost: '预估费用',
+          throughput: '吞吐 tok/s', cacheHit: '缓存命中', tokens: '输入/输出 token', cost: '预估费用', peak: '峰谷时段',
         }
         const PREVIEW_TEXTS = {
           counts: '12 轮 · 45 步', llm: 'LLM 2m10s', toolCall: '工具调用时长 45s', ttft: '首 token 平均 1.8s', throughput: '34.2 tok/s',
           cacheHit: { separate: '缓存命中 5.93M tok', combined: '缓存命中 97%' },
           tokens: { separate: '输入 96.3K tok · 输出 72.8K tok', combined: '输入 6.0M tok · 输出 72.8K tok' },
-          cost: '预估 ¥0.36',
+          cost: '预估 ¥0.36', peak: '⏱ 高峰',
         }
         const DEFAULT_COMPOSITION = SEGMENT_IDS.map((id) => ({ id, enabled: true }))
         let compositionValue = null
@@ -1152,6 +1152,11 @@ body[data-ds-dark-theme] .dsh-price-input {
                 if (estimate === null) return usageActive ? '计算中…' : null
                 return costGroup(estimate, precision, null)
               },
+              // 修订 78：峰谷时段提醒分段——仅峰谷开启且会话含官方渠道模型时显示
+              peak: () => {
+                if (estimate === null || estimate.peak === undefined || !estimate.peak.enabled) return null
+                return estimate.peak.window === 'peak' ? '⏱ 高峰' : '⏱ 空闲'
+              },
             }
             // ⚠️ 修订 25：三函数必须在 children 构造之前定义（const TDZ）
             const cancelSegClick = () => {
@@ -1294,6 +1299,17 @@ body[data-ds-dark-theme] .dsh-price-input {
                 case 'tokens': return usageActive
                   ? [['未缓存输入', formatTokens(usage.uncachedInputTokens || 0) + ' tok'], ['缓存读', formatTokens(usage.cacheReadTokens || 0) + ' tok'], ['缓存写', formatTokens(usage.cacheWriteTokens || 0) + ' tok'], ['输出', formatTokens(usage.outputTokens || 0) + ' tok']]
                   : null
+                case 'peak': {
+                  if (estimate === null || estimate.peak === undefined || !estimate.peak.enabled) return null
+                  const tzLabel = estimate.peak.tz === undefined || estimate.peak.tz === 'system' ? '跟随系统' : estimate.peak.tz
+                  return [
+                    ['当前时段', estimate.peak.window === 'peak' ? '高峰' : '空闲'],
+                    ['高峰时段', '9:00-12:00 / 14:00-18:00'],
+                    ['空闲时段', '其余时间（高峰一半）'],
+                    ['时区', tzLabel],
+                    ['适用渠道', '仅 DeepSeek 官方（deepseek）'],
+                  ]
+                }
                 default: return null
               }
             }
