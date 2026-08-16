@@ -566,3 +566,8 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **用户反馈**：「不能做个滑槽什么的吗」——箭头按钮换成轨道+滑动指示条的分段控件。
 - **实现**：`PeakModelSlider` 组件(apply 内定义)——轨道(`dsh-peak-slider`,圆角+边框+内边距)里一个绝对定位的品牌色胶囊指示条(`dsh-peak-slider-thumb`),下方 flex 平分 N 个分段按钮;`useLayoutEffect` 在 curIdx/models 变化后量取当前分段的 `offsetLeft/offsetWidth` 写入 thumb 的 left/width,配合 CSS `transition: left/width .22s` 实现平滑滑动;选中段文字品牌色加粗。单模型时退化模型名小标题。
 - **教训**：① 「滑槽/分段控件」的滑动指示条 = 绝对定位 thumb + useLayoutEffect 量取目标位置 + left/width 过渡——量取要在 DOM 更新后(useLayoutEffect),别用 setTimeout 碰运气;② 分段控件内部用 flex 平分、thumb 绝对定位在轨道内(轨道 position:relative),点击目标就是普通 button,无障碍和键盘可用;③ 这种「量位置」的组件逻辑和渲染耦合,封装成独立小组件,别塞进父组件 render 里(峰值函数不能挂 hooks)。
+
+## 66. 滑槽换模型 → 底栏参考价联动（修订 91，2026-08-15）
+- **用户反馈**：「滑槽换了模型,那参考输入也要换吧」——明细滑槽切到 Pro 后,底栏 ⏱ 分段还挂着 Flash 的价,两处对不上。
+- **修法**：`builders.peak` 从 `estimate.peak.models[peakModelIdx]` 取当前窗口的输入价(不再用 host 的单模型字段),多模型时分段带**短模型名**(Flash/Pro)便于辨认——`⏱ 高峰 参考 Pro 输入 ¥9.0/1M`;单模型时保持原样不带模型名。
+- **教训**：① 「弹层里有选择器」时,所有展示该数据的入口(分段/卡片/其他弹层)都要**消费同一个选择状态**,否则必然出现「弹层选 A、外面显示 B」的错位;② 分段文本里加「短模型名」是低成本消歧——用户看到价格时能确认「这是哪个模型的价」。

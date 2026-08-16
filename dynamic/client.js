@@ -1288,14 +1288,22 @@ body[data-ds-dark-theme] .dsh-price-input {
                 if (estimate === null) return usageActive ? '计算中…' : null
                 return costGroup(estimate, precision, null)
               },
-              // 修订 78/79/85：峰谷提醒分段——标注价格类型(输入)与参考/实际身份
+              // 修订 78/79/85/91：峰谷提醒分段——价格跟随明细滑槽所选模型(多模型
+              // 时带短模型名),标注桶类型(输入)与参考/实际身份
               peak: () => {
                 if (estimate === null || estimate.peak === undefined || !estimate.peak.enabled) return null
-                const inPrice = estimate.peak.window === 'peak' ? estimate.peak.peakIn : estimate.peak.baseIn
+                const p = estimate.peak
+                const models = Array.isArray(p.models) && p.models.length > 0 ? p.models : null
+                const idx = models !== null ? Math.min(peakModelIdx, models.length - 1) : 0
+                const cur = models !== null ? models[idx] : p
+                const inPrice = p.window === 'peak' ? cur.peakIn : cur.baseIn
                 const priceText = inPrice !== null && inPrice !== undefined ? compactMoney(inPrice, 'CNY', 'compact') + '/1M' : ''
-                const when = estimate.peak.window === 'peak' ? '⏱ 高峰' : '⏱ 空闲'
-                const ref = estimate.peak.priced ? '' : ' 参考'
-                return when + ref + ' 输入 ' + priceText
+                const when = p.window === 'peak' ? '⏱ 高峰' : '⏱ 空闲'
+                const ref = p.priced ? '' : ' 参考'
+                const modelTag = models !== null && models.length > 1
+                  ? ({ 'deepseek-v4-flash': ' Flash', 'deepseek-v4-pro': ' Pro' }[cur.model] || ' ' + cur.model)
+                  : ''
+                return when + ref + modelTag + ' 输入 ' + priceText
               },
             }
             // ⚠️ 修订 25：三函数必须在 children 构造之前定义（const TDZ）
