@@ -2290,7 +2290,8 @@ body[data-ds-dark-theme] .dsh-price-input {
               if (all.freeCount > 0) {
                 ctx.fillStyle = '#10b981'
                 ctx.font = '600 12px sans-serif'
-                ctx.fillText('其中 ' + all.freeCount + ' 个免费渠道,共省 ¥/USD ' + Object.keys(all.totals).map((k) => compactMoney(all.totals[k], k, 'full')).join(' '), pad, y + 6)
+                const savedText = all.savedTotals !== null && all.savedTotals !== undefined && Object.keys(all.savedTotals).length > 0 ? ' · 按官方价已省 ' + Object.keys(all.savedTotals).map((k) => compactMoney(all.savedTotals[k], k, 'full')).join(' ') : ''
+                ctx.fillText('其中 ' + all.freeCount + ' 个免费渠道' + savedText, pad, y + 6)
               }
               ctx.fillStyle = isDark ? '#8a8a88' : '#999'
               ctx.font = 'normal 10px sans-serif'
@@ -2643,14 +2644,18 @@ body[data-ds-dark-theme] .dsh-price-input {
                       React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)', whiteSpace: 'nowrap' }, title: r.key }, r.key),
                       React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' } },
                         React.createElement('small', { style: fullTok }, formatTokens(r.tokens) + ' tok'),
-                        React.createElement('span', { style: r.free ? { color: '#10b981', fontWeight: 600 } : { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, r.free ? '免费' : compactMoney(r.cost, r.currency, 'compact')),
+                        React.createElement('span', { style: r.free ? { color: '#10b981', fontWeight: 600 } : { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } },
+                          r.free ? ('免费 · 省 ' + (r.refCost !== null && r.refCost !== undefined ? compactMoney(r.refCost, r.refCurrency, 'compact') : '')) : compactMoney(r.cost, r.currency, 'compact'),
+                        ),
                       ),
                     )),
                     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, marginTop: 2, borderTop: '1px dashed var(--dsw-alias-border-l2)' } },
                       React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)' } }, '总计费用'),
                       React.createElement('span', { style: { fontSize: 14, lineHeight: '20px', fontWeight: 700, color: 'var(--dsw-alias-brand-primary)' } }, Object.keys(fullAll.totals).map((k) => compactMoney(fullAll.totals[k], k, 'full')).join('   ')),
                     ),
-                    fullAll.freeCount > 0 && React.createElement('button', { style: { alignSelf: 'flex-start', border: 'none', background: 'none', color: '#10b981', fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: 0 } }, '其中 ' + fullAll.freeCount + ' 个免费渠道'),
+                    fullAll.freeCount > 0 && React.createElement('div', { style: { fontSize: 11, lineHeight: '16px', fontWeight: 600, color: '#10b981' } },
+                      '其中 ' + fullAll.freeCount + ' 个免费渠道' + (typeof fullAll.savedTotals === 'object' && fullAll.savedTotals !== null && Object.keys(fullAll.savedTotals).length > 0 ? ' · 按官方价已省 ' + Object.keys(fullAll.savedTotals).map((k) => compactMoney(fullAll.savedTotals[k], k, 'full')).join(' ') : ''),
+                    ),
                     React.createElement('button', { className: 'dsh-comp-btn dsh-comp-reset', onClick: exportSummaryImage, style: { alignSelf: 'flex-start' } }, '📤 导出图片'),
                   ),
               ),
