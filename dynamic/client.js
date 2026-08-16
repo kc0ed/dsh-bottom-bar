@@ -1123,6 +1123,21 @@ body[data-ds-dark-theme] .dsh-price-input {
 .dsh-detail-src-channel {
   color: var(--dsw-alias-brand-primary);
   background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
+}
+.dsh-detail-fix {
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 8%, transparent);
+  color: var(--dsw-alias-brand-primary);
+  border-radius: 8px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 2px 0 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.dsh-detail-fix:hover {
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
 }`)
         const usageOutputTokens = (usage) => {
           if (typeof usage !== 'object' || usage === null) return null
@@ -1698,7 +1713,9 @@ body[data-ds-dark-theme] .dsh-price-input {
                 for (const u of estimate.unpriced) {
                   const toks = (u.uncachedInput || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0) + (u.output || 0)
                   nodes.push(React.createElement('div', { className: 'dsh-detail-model', key: 'u' + u.model }, u.model))
-                  nodes.push(React.createElement('div', { className: 'dsh-detail-empty', key: 'ue' + u.model }, '无官方价 · ' + formatTokens(toks) + ' tok'))
+                  // 修订 104：未配置价格的模型给「一键按官方价配置」入口(最短路径闭环)
+                  nodes.push(React.createElement('div', { className: 'dsh-detail-empty', key: 'ue' + u.model }, '未配置价格 · ' + formatTokens(toks) + ' tok'))
+                  nodes.push(React.createElement('button', { className: 'dsh-detail-fix', key: 'uf' + u.model, onClick: () => { host.call('set-price', { model: u.model, price: {} }).catch((err) => console.error('dsh-bottom-bar: fix price failed', err)) } }, '按官方价一键配置'))
                 }
               }
               const totals = typeof estimate.totals === 'object' && estimate.totals !== null ? estimate.totals : {}
