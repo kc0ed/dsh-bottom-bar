@@ -983,8 +983,8 @@ body[data-ds-dark-theme] .dsh-price-input {
           for (const key of Object.keys(totals)) parts.push(compactMoney(totals[key], key, precision))
           let text = '预估 ' + (parts.length > 0 ? parts.join(' + ') : '—')
           if (estimate.unpriced.length > 0) text += ' (+' + estimate.unpriced.length + ' 无价)'
-          // 修订 75：峰谷定价开启时标注当前时段
-          if (estimate.peak !== undefined && estimate.peak.enabled) text += estimate.peak.window === 'peak' ? ' · 高峰' : ' · 空闲'
+          // 修订 75/79：峰谷计价开启且实际套用高峰价时,费用段标注当前时段
+          if (estimate.peak !== undefined && estimate.peak.priced) text += estimate.peak.window === 'peak' ? ' · 高峰' : ' · 空闲'
           return text
         }
         const SEGMENT_IDS = ['counts', 'llm', 'toolCall', 'ttft', 'throughput', 'cacheHit', 'tokens', 'cost', 'peak']
@@ -1152,7 +1152,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                 if (estimate === null) return usageActive ? '计算中…' : null
                 return costGroup(estimate, precision, null)
               },
-              // 修订 78：峰谷时段提醒分段——仅峰谷开启且会话含官方渠道模型时显示
+              // 修订 78/79：峰谷提醒分段——提醒开关开启即显示（与是否计价无关）
               peak: () => {
                 if (estimate === null || estimate.peak === undefined || !estimate.peak.enabled) return null
                 return estimate.peak.window === 'peak' ? '⏱ 高峰' : '⏱ 空闲'
@@ -1316,8 +1316,8 @@ body[data-ds-dark-theme] .dsh-price-input {
             const costDetail = () => {
               if (typeof estimate !== 'object' || estimate === null || !estimate.hasUsage) return null
               const nodes = []
-              // 修订 75：峰谷定价开启时首行标注当前时段
-              if (estimate.peak !== undefined && estimate.peak.enabled) {
+              // 修订 75/79：峰谷计价实际套用时,明细面板首行标注当前时段
+              if (estimate.peak !== undefined && estimate.peak.priced) {
                 nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'peak' },
                   React.createElement('span', null, '当前时段'),
                   React.createElement('span', null, estimate.peak.window === 'peak' ? '高峰 · 9:00-12:00/14:00-18:00' : '空闲时段'),
@@ -1409,6 +1409,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [precision, setPrecision] = React.useState(initPageCfg && initPageCfg.precision === 'full' ? 'full' : 'compact')
             // 修订 75：峰谷定价开关 + 当前时段指示（DeepSeek 2026-08-17 起）
             const [peakEnabled, setPeakEnabled] = React.useState(initPageCfg ? initPageCfg.peakEnabled === true : false)
+            const [peakRemind, setPeakRemind] = React.useState(initPageCfg ? initPageCfg.peakRemind === true : true)
             const [peakNow, setPeakNow] = React.useState(initPageCfg && (initPageCfg.peakNow === 'peak' || initPageCfg.peakNow === 'offpeak') ? initPageCfg.peakNow : null)
             // 修订 77：峰谷时区——'system'=跟随系统,或 'UTC±N' 固定偏移
             const [peakTz, setPeakTz] = React.useState(initPageCfg && typeof initPageCfg.peakTimezone === 'string' ? initPageCfg.peakTimezone : 'system')
@@ -1429,7 +1430,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             const dropIndexRef = React.useRef(null)
             const listRef = React.useRef(null)
             const segmentsRef = React.useRef(null)
-            const optionsRef = React.useRef({ mode: 'separate', tooltip: 'auto', precision: 'compact', peakEnabled: false, peakTimezone: 'system' })
+            const optionsRef = React.useRef({ mode: 'separate', tooltip: 'auto', precision: 'compact', peakEnabled: false, peakRemind: true, peakTimezone: 'system' })
             const rowRefs = React.useRef([])
             const flipTops = React.useRef(null)
             const previewDockRef = React.useRef(null)
@@ -1495,6 +1496,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                   if (typeof result.tooltip === 'string') { setTooltipAlways(result.tooltip === 'always'); optionsRef.current.tooltip = result.tooltip }
                   if (result.precision === 'compact' || result.precision === 'full') { setPrecision(result.precision); optionsRef.current.precision = result.precision }
                   if (typeof result.peakEnabled === 'boolean') { setPeakEnabled(result.peakEnabled); optionsRef.current.peakEnabled = result.peakEnabled }
+                  if (typeof result.peakRemind === 'boolean') { setPeakRemind(result.peakRemind); optionsRef.current.peakRemind = result.peakRemind }
                   if (typeof result.peakTimezone === 'string') { setPeakTz(result.peakTimezone); optionsRef.current.peakTimezone = result.peakTimezone }
                   if (result.peakNow === 'peak' || result.peakNow === 'offpeak') setPeakNow(result.peakNow)
                   setLoaded(true)
@@ -1524,7 +1526,7 @@ body[data-ds-dark-theme] .dsh-price-input {
               return () => timer()
             }, [loaded])
             segmentsRef.current = segments
-            optionsRef.current = { mode, tooltip: tooltipAlways ? 'always' : 'auto', precision, peakEnabled, peakTimezone: peakTz }
+            optionsRef.current = { mode, tooltip: tooltipAlways ? 'always' : 'auto', precision, peakEnabled, peakRemind, peakTimezone: peakTz }
             React.useLayoutEffect(() => {
               if (flipTops.current === null) return
               const tops = flipTops.current
@@ -1706,8 +1708,10 @@ body[data-ds-dark-theme] .dsh-price-input {
             const toggleMode = () => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, mode: mode === 'separate' ? 'combined' : 'separate' }) }
             const toggleTooltip = () => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, tooltip: tooltipAlways ? 'auto' : 'always' }) }
             const togglePrecision = () => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, precision: precision === 'full' ? 'compact' : 'full' }) }
-            // 修订 75：峰谷定价开关
+            // 修订 75：峰谷计价开关
             const togglePeak = () => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, peakEnabled: !peakEnabled }) }
+            // 修订 79：峰谷提醒开关（仅显示时段,不改价格）
+            const togglePeakRemind = () => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, peakRemind: !peakRemind }) }
             // 修订 77：峰谷时区切换
             const togglePeakTz = (v) => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, peakTimezone: v }) }
             const reset = () => {
@@ -1718,6 +1722,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                 if (typeof result.tooltip === 'string') { setTooltipAlways(result.tooltip === 'always'); optionsRef.current.tooltip = result.tooltip }
                 if (result.precision === 'compact' || result.precision === 'full') { setPrecision(result.precision); optionsRef.current.precision = result.precision }
                 if (typeof result.peakEnabled === 'boolean') { setPeakEnabled(result.peakEnabled); optionsRef.current.peakEnabled = result.peakEnabled }
+                if (typeof result.peakRemind === 'boolean') { setPeakRemind(result.peakRemind); optionsRef.current.peakRemind = result.peakRemind }
                 if (typeof result.peakTimezone === 'string') { setPeakTz(result.peakTimezone); optionsRef.current.peakTimezone = result.peakTimezone }
                 if (result.peakNow === 'peak' || result.peakNow === 'offpeak') setPeakNow(result.peakNow)
               }).catch(() => {})
@@ -1975,18 +1980,23 @@ body[data-ds-dark-theme] .dsh-price-input {
                 ),
               ),
               React.createElement('div', { className: 'dsh-comp-row' + (peakEnabled ? ' dsh-on' : ' dsh-off') },
-                React.createElement('span', { className: 'dsh-comp-label' }, 'DeepSeek 峰谷定价' + (peakNow !== null ? (peakNow === 'peak' ? ' · 当前高峰' : ' · 当前空闲') : '') + (peakTz === 'system' ? '' : '（' + peakTz + '）')),
+                React.createElement('span', { className: 'dsh-comp-label' }, '峰谷计价（按高峰价计费）' + (peakNow !== null ? (peakNow === 'peak' ? ' · 当前高峰' : ' · 当前空闲') : '') + (peakTz === 'system' ? '' : '（' + peakTz + '）')),
                 React.createElement('label', { className: 'dsh-switch' },
                   React.createElement('input', { type: 'checkbox', checked: peakEnabled, disabled: offline, onChange: togglePeak }),
                   React.createElement('span', { className: 'dsh-switch-track' }),
                   React.createElement('span', { className: 'dsh-switch-knob' }),
                 ),
+                React.createElement('select', { className: 'dsh-comp-select', value: peakTz, disabled: offline, onChange: (e) => togglePeakTz(e.target.value) }, TZ_OPTIONS.map((z) => React.createElement('option', { value: z, key: z }, z === 'system' ? '跟随系统' : z))),
               ),
-              React.createElement('div', { className: 'dsh-comp-row' },
-                React.createElement('span', { className: 'dsh-comp-label' }, '峰谷时区'),
-                React.createElement('select', { className: 'dsh-comp-select', value: peakTz, disabled: offline, onChange: (e) => togglePeakTz(e.target.value) }, TZ_OPTIONS.map((z) => React.createElement('option', { value: z, key: z }, z === 'system' ? '跟随系统时区' : z))),
+              React.createElement('div', { className: 'dsh-comp-row' + (peakRemind ? ' dsh-on' : ' dsh-off') },
+                React.createElement('span', { className: 'dsh-comp-label' }, '峰谷提醒（仅显示时段，不改价格）'),
+                React.createElement('label', { className: 'dsh-switch' },
+                  React.createElement('input', { type: 'checkbox', checked: peakRemind, disabled: offline, onChange: togglePeakRemind }),
+                  React.createElement('span', { className: 'dsh-switch-track' }),
+                  React.createElement('span', { className: 'dsh-switch-knob' }),
+                ),
               ),
-              React.createElement('p', { className: 'dsh-comp-desc' }, 'DeepSeek 自 2026-08-17 00:00 起实行峰谷定价：高峰时段 9:00-12:00 / 14:00-18:00（按所选时区，默认跟随系统），空闲时段为高峰一半。仅 DeepSeek 官方渠道（deepseek）适用；开启后按当前时段计价，底栏费用段与明细面板会标注「高峰 / 空闲」。'),
+              React.createElement('p', { className: 'dsh-comp-desc' }, 'DeepSeek 自 2026-08-17 00:00 起实行峰谷定价：高峰时段 9:00-12:00 / 14:00-18:00（按所选时区，默认跟随系统），空闲时段为高峰一半。「计价」按高峰价算钱（仅官方 deepseek 渠道生效）；「提醒」只显示 ⏱ 高峰/空闲 与时段标注，不影响价格。'),
               React.createElement('div', { className: 'dsh-preview' },
                 React.createElement('div', { className: 'dsh-preview-header' },
                   React.createElement('span', { className: 'dsh-preview-label' }, '底栏效果预览'),
