@@ -182,7 +182,6 @@ return {
 .dsh-peak-cell-hot {
   background: color-mix(in srgb, var(--dsw-alias-brand-primary) 14%, transparent);
   color: var(--dsw-alias-brand-primary) !important;
-  font-weight: 700;
   border-radius: 4px;
   padding: 0 4px;
 }
@@ -267,7 +266,6 @@ return {
   background: color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
   border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 30%, transparent);
   color: var(--dsw-alias-brand-primary);
-  font-weight: 600;
 }
 
 .dsh-tip {
