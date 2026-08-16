@@ -616,7 +616,7 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 ## 74. 包名加 scope：`@kc0ed/dsh-bottom-bar`（2026-08-16）
 
 - **为什么加**：npm 裸名全球先到先得，`dsh-bottom-bar` 这种通用名迟早撞车；官方全家都在 `@deepseek-ai/` scope 下，scoped 是生态惯例。
-- **改名联动点（漏一个就装不上）**：① `package.json` name；② `cordis.patch.yml` 的 `name:` 字段（loader 按包名解析，必须同步）；③ profile `package.json` 的**依赖键 + bundles 清单**；④ `pnpm-lock.yaml`（跑一次 `pnpm install` 自动更新）；⑤ `node_modules` 链接（scoped 要建 `node_modules/@kc0ed/` 子目录再链接）。typert 的 `package: 'dsh-bottom-bar'` 内部协议 id 与 npm 名无关，**不用改**（三处保持一致即可）。
+- **改名联动点（漏一个就装不上）**：① `package.json` name；② `cordis.patch.yml` 的 `name:` 字段（loader 按包名解析，必须同步）；③ profile `package.json` 的**依赖键 + bundles 清单**；④ `pnpm-lock.yaml`（跑一次 `pnpm install` 自动更新）；⑤ `node_modules` 链接（scoped 要建 `node_modules/@kc0ed/` 子目录再链接）；⑥ **typert 三处 `package:` 字段**（`lib/typert.host.js`、`lib/typert.remote-client.js`、`lib/client.js` 内联 TYPERT_REMOTE）——**typert loader 有所有权校验：清单的 package 必须等于导出它的 npm 包名**，改漏任一处 = boot 直接挂（`the manifest must be owned by the package that exports it`，实测修订 76）。descriptor 的 `id`/`typeSymbol` 前缀（`dsh-bottom-bar#...`）是两端一致的线标识，与 npm 名无关，**不用改**（host/client 三处保持一致即可）。
 - **scoped 包发布必须 `publishConfig.access: "public"`**，否则 npm publish 默认按私有处理；scope 必须归 npm 账号/组织所有（`@kc0ed` 归 kc0ed 账号）。
 - **分发通道**：npm 发布后 `dsh plugin --profile web add @kc0ed/dsh-bottom-bar`；未发布可 `add github:kc0ed/dsh-bottom-bar`（仓库已提交 `lib/` + `cordis.patch.yml`，无 build 步骤，git 安装开箱即用）；本地开发 `add link:<路径>`。
 
@@ -629,3 +629,12 @@ DSH 官方插件安装机制（文档 `docs/user/develop/basic/publish.zh.md`，
 - **scoped 链接**：先建 `node_modules/@kc0ed/` 目录，再在目录内建 `dsh-bottom-bar` junction 指向仓库。
 - **验证**：`Test-Path <链接>\lib\index.js` + node `readdirSync` 穿链接读目录，别信 cmd dir 的显示（不带 `\??\` 前缀也可能是好的）。
 - 换名期间旧链接删不掉没关系（bundles 清单已不含旧名，重启后 loader 不再引用），重启后补删即可。
+
+## 76. 发布前必查 `files` 白名单：漏文件 = 发布成功但装上就挂（2026-08-16）
+
+准备 `npm publish` 时用 `npm pack --dry-run` 体检 tarball，当场抓到两个漏网之鱼：
+
+- **`lib/pricing.js` 不在 files 列表**——`lib/index.js` 第 27 行 `import './pricing.js'`，发布后别人安装 → 启动即 `MODULE_NOT_FOUND`。
+- **`lib/models_dev_prices.json` 也不在**——`pricing.js` 运行时 `resolve(__dirname, 'models_dev_prices.json')` 读价格表，漏了它价格表直接空。
+- **修法**：`files` 白名单改成 `["lib", "cordis.patch.yml"]`（整个 lib 目录），以后 lib 里加文件不用再维护清单。
+- **教训**：① 发布前必须 `npm pack --dry-run` 看 Tarball Contents，逐文件核对运行时依赖（import 链 + `resolve(__dirname, ...)` 的静态资源），别只看「包能 publish」;② `files` 白名单是**最容易静默翻车**的地方——本机开发用 junction 直连仓库，`lib/` 全文件永远在,永远测不出漏文件,只有装 tarball 的人才炸;③ 终极验证 = 临时 `DSH_HOME` + 干净 profile + `dsh plugin add <tgz>` + 真实 boot（25s 窗口看进程没早退），一条龙记在 §25/§22。

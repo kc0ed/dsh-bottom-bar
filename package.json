@@ -51,10 +51,7 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "lib/index.js",
-    "lib/client.js",
-    "lib/typert.host.js",
-    "lib/typert.remote-client.js",
+    "lib",
     "cordis.patch.yml"
   ],
   "dependencies": {
