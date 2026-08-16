@@ -140,12 +140,43 @@ return {
   color: var(--dsw-alias-label-secondary);
   opacity: 0.9;
 }
+/* 修订 84：仅参考（非官方渠道/未计价）→ 低调次级色;价格单独标色——高峰时深色加粗（贵） */
+.dsh-seg-ref {
+  color: var(--dsw-alias-label-secondary);
+}
+.dsh-seg-price {
+  font-weight: 600;
+}
+.dsh-seg-price-hot {
+  color: var(--dsw-alias-brand-primary) !important;
+  font-weight: 700;
+}
 @keyframes dsh-peak-pulse {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--dsw-alias-brand-primary) 32%, transparent); }
   50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) {
   .dsh-seg-peak { animation: none; }
+}
+/* 修订 84：峰谷明细价格对比表格——当前时段列高亮（品牌色加粗） */
+.dsh-peak-table {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 2px 12px;
+  margin: 4px 0;
+  align-items: center;
+}
+.dsh-peak-cell {
+  white-space: nowrap;
+}
+.dsh-peak-cell-head {
+  opacity: 0.65;
+  font-size: 11px;
+  line-height: 16px;
+}
+.dsh-peak-cell-hot {
+  color: var(--dsw-alias-brand-primary) !important;
+  font-weight: 700;
 }
 
 .dsh-tip {
@@ -1216,16 +1247,33 @@ body[data-ds-dark-theme] .dsh-price-input {
             const children = []
             lineGroups.forEach((group, i) => {
               if (i > 0) { children.push(React.createElement('span', { className: 'dsh-stats-sep', 'aria-hidden': true, key: 'sep' + i }, '|')); children.push(' ') }
-              // 修订 82：峰谷分段附加状态类——高峰=品牌色胶囊+脉冲光晕,空闲=次级色
+              // 修订 82/84：峰谷分段状态类——渠道轴:priced(官方+计价)=胶囊+脉冲,
+              // 仅参考=低调次级色;时段轴:高峰时价格单独标深色(贵),空闲正常
               let segClass = 'dsh-seg'
+              let peakPriceText = ''
               if (group.id === 'peak' && estimate !== null && estimate.peak !== undefined && estimate.peak.enabled) {
-                segClass += estimate.peak.window === 'peak' ? ' dsh-seg-peak' : ' dsh-seg-offpeak'
+                if (estimate.peak.priced) {
+                  segClass += estimate.peak.window === 'peak' ? ' dsh-seg-peak' : ' dsh-seg-offpeak'
+                } else {
+                  segClass += ' dsh-seg-ref'
+                }
+                const sp = group.text.lastIndexOf(' ')
+                if (sp !== -1) {
+                  peakPriceText = group.text.slice(sp + 1)
+                  group.text = group.text.slice(0, sp)
+                }
               }
+              const isPeakWindow = group.id === 'peak' && estimate !== null && estimate.peak !== undefined && estimate.peak.window === 'peak'
               children.push(React.createElement('span', {
                 className: segClass, key: group.id, title: '点击查看明细',
                 onClick: (e) => onSegClick(group.id, e.currentTarget),
                 onDoubleClick: cancelSegClick,
-              }, group.text))
+              },
+                group.text,
+                peakPriceText !== ''
+                  ? React.createElement('span', { className: 'dsh-seg-price' + (isPeakWindow ? ' dsh-seg-price-hot' : '') }, ' ' + peakPriceText)
+                  : null,
+              ))
             })
             const rootRef = React.useRef(null)
             const bubbleRef = React.useRef(null)
@@ -1324,24 +1372,52 @@ body[data-ds-dark-theme] .dsh-price-input {
                 case 'tokens': return usageActive
                   ? [['未缓存输入', formatTokens(usage.uncachedInputTokens || 0) + ' tok'], ['缓存读', formatTokens(usage.cacheReadTokens || 0) + ' tok'], ['缓存写', formatTokens(usage.cacheWriteTokens || 0) + ' tok'], ['输出', formatTokens(usage.outputTokens || 0) + ' tok']]
                   : null
-                case 'peak': {
-                  if (estimate === null || estimate.peak === undefined || !estimate.peak.enabled) return null
-                  const tzLabel = estimate.peak.tz === undefined || estimate.peak.tz === 'system' ? '跟随系统' : estimate.peak.tz
-                  const money = (v) => (v === null || v === undefined ? '—' : compactMoney(v, 'CNY', 'compact') + '/1M')
-                  return [
-                    ['当前时段', estimate.peak.window === 'peak' ? '高峰' : '空闲'],
-                    ['高峰时段', '9:00-12:00 / 14:00-18:00'],
-                    ['空闲时段', '其余时间（高峰一半）'],
-                    ['高峰输入价', money(estimate.peak.peakIn)],
-                    ['空闲输入价', money(estimate.peak.baseIn)],
-                    ['高峰输出价', money(estimate.peak.peakOut)],
-                    ['空闲输出价', money(estimate.peak.baseOut)],
-                    ['时区', tzLabel],
-                    ['适用渠道', '仅 DeepSeek 官方（deepseek）'],
-                  ]
-                }
                 default: return null
               }
+            }
+            // 修订 84：峰谷明细 = 高峰/空闲价格对比表格（当前时段列高亮）+ 规则行
+            const peakDetail = () => {
+              if (estimate === null || estimate.peak === undefined || !estimate.peak.enabled) return null
+              const p = estimate.peak
+              const nodes = []
+              const money = (v) => (v === null || v === undefined ? '—' : compactMoney(v, 'CNY', 'compact') + '/1M')
+              const hot = p.window === 'peak' ? 'peak' : 'base'
+              const cell = (text, head, colHot) => React.createElement('span', {
+                className: 'dsh-peak-cell' + (head ? ' dsh-peak-cell-head' : '') + (colHot ? ' dsh-peak-cell-hot' : ''),
+                key: text + (head ? 'h' : '') + (colHot ? 'x' : ''),
+              }, text)
+              nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'cur' },
+                React.createElement('span', null, '当前时段'),
+                React.createElement('span', null, p.window === 'peak' ? '高峰' : '空闲'),
+              ))
+              nodes.push(React.createElement('div', { className: 'dsh-peak-table', key: 'tbl' },
+                cell('价格(1M)', true, false),
+                cell('高峰', true, hot === 'peak'),
+                cell('空闲', true, hot === 'base'),
+                cell('输入', false, false),
+                cell(money(p.peakIn), false, hot === 'peak'),
+                cell(money(p.baseIn), false, hot === 'base'),
+                cell('输出', false, false),
+                cell(money(p.peakOut), false, hot === 'peak'),
+                cell(money(p.baseOut), false, hot === 'base'),
+              ))
+              nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'win' },
+                React.createElement('span', null, '高峰时段'),
+                React.createElement('span', null, '9:00-12:00 / 14:00-18:00'),
+              ))
+              nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'off' },
+                React.createElement('span', null, '空闲时段'),
+                React.createElement('span', null, '其余时间（高峰一半）'),
+              ))
+              nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'tz' },
+                React.createElement('span', null, '时区'),
+                React.createElement('span', null, p.tz === undefined || p.tz === 'system' ? '跟随系统' : p.tz),
+              ))
+              nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'ch' },
+                React.createElement('span', null, '适用渠道'),
+                React.createElement('span', null, '仅 DeepSeek 官方（deepseek）'),
+              ))
+              return nodes
             }
             const costDetail = () => {
               if (typeof estimate !== 'object' || estimate === null || !estimate.hasUsage) return null
@@ -1397,7 +1473,9 @@ body[data-ds-dark-theme] .dsh-price-input {
             }
             const detailNodes = detailSeg === 'cost'
               ? costDetail()
-              : (() => {
+              : detailSeg === 'peak'
+                ? peakDetail()
+                : (() => {
                 const rows = segDetailRows(detailSeg)
                 if (rows === null) return null
                 return rows.map((row, i) => React.createElement('div', { className: 'dsh-detail-row', key: i },
