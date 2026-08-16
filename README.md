@@ -6,6 +6,7 @@ DSH 底栏统计 + 预估费用插件:把聊天界面最底下那行统计接管
 
 <img width="500" alt="QQ_1786701111767" src="https://github.com/user-attachments/assets/92e20843-573f-4085-8853-c25aa44e3137" />
 <img width="500" alt="image" src="https://github.com/user-attachments/assets/93508b29-bbff-4a71-94f6-7cdb4e497ad5" />
+<img width="500" alt="image" src="https://github.com/user-attachments/assets/94d9764c-8115-430f-8ffd-b1a806a36c75" />
 
 ## 安装
 
