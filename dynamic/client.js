@@ -241,6 +241,26 @@ return {
   color: var(--dsw-alias-brand-primary);
   font-weight: 600;
 }
+/* 修订 92：高峰时段窗口 chips——当前所在窗口高亮 */
+.dsh-peak-ranges {
+  display: inline-flex;
+  gap: 4px;
+}
+.dsh-peak-range {
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.dsh-peak-range-hot {
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent);
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 30%, transparent);
+  color: var(--dsw-alias-brand-primary);
+  font-weight: 600;
+}
 
 .dsh-tip {
   position: fixed;
@@ -1518,13 +1538,17 @@ body[data-ds-dark-theme] .dsh-price-input {
                 nodes.push(React.createElement('div', { className: 'dsh-peak-model', key: 'mh' }, modelLabel(curModel.model)))
               }
               nodes.push(tableFor(curModel, 'tbl'))
+              // 修订 92：高峰时段拆成窗口 chips,当前所在窗口高亮（空闲时标在空闲行）
+              const rangeLabels = ['9:00-12:00', '14:00-18:00']
               nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'win' },
                 React.createElement('span', null, '高峰时段'),
-                React.createElement('span', null, '9:00-12:00 / 14:00-18:00'),
+                React.createElement('span', { className: 'dsh-peak-ranges' },
+                  rangeLabels.map((r) => React.createElement('span', { className: 'dsh-peak-range' + (p.activeRange === r ? ' dsh-peak-range-hot' : ''), key: r }, r + (p.activeRange === r ? ' · 当前' : ''))),
+                ),
               ))
               nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'off' },
                 React.createElement('span', null, '空闲时段'),
-                React.createElement('span', null, '其余时间（高峰一半）'),
+                React.createElement('span', null, '其余时间（高峰一半）' + (p.window === 'offpeak' ? ' · 当前' : '')),
               ))
               nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'tz' },
                 React.createElement('span', null, '时区'),
