@@ -59,6 +59,12 @@ descriptor 的 `id`/`typeSymbol` 前缀(`dsh-bottom-bar#...`)是两端一致的�
 
 ## 已知环境坑
 
-- pnpm 对含空格/中文的 `link:` 路径会造坏 junction;重建用 node `fs.symlinkSync`
-- 运行中的 DSH 进程占着旧链接时删不掉(`fs.rmSync` 静默失败)——重启后补删
-- `dsh plugin add` 相对路径 spec 按**调用目录**锚定;裸目录 spec 建 junction(实时同步),`file:` 是拷贝式(改代码不生效)
+- pnpm 对 `link:` 目标**无条件拼坏 junction**(实测两次:① 含空格/中文路径 → target 变 `<profile>\D:\Coding\...` 乱拼接;② **无空格盘符路径同样拼坏** → `<profile>\D:\dsh-dev\...`。pnpm 把 `D:/...` 当相对段 join 到 profile 目录)。**结论:本机 profile 彻底不用 `link:` 依赖**。
+- **本机 profile 的本地开发包 = junction-only bundles**:`@kc0ed/dsh-bottom-bar`、`dsh-claude-theme` **不进 `dependencies`**(`dependencies: {}`),只在 `dsh.profile.bundles` 列名;node_modules 里手建 junction 指向 `D:\dsh-dev\<名>`(无空格锚点 junction → 真实仓库)。官方 reconcile 只增删「曾是依赖」的 bundle(wasDependency),**非依赖 bundle 永不被动**;pnpm install 也不碰手建 junction(不在 lockfile/.modules.yaml)——已实测 dump-config 四层齐全。卸载 = 删 junction + 删 bundles 条目(`dsh plugin remove` 对非依赖包无效)。
+- `D:\dsh-dev\` 是两个仓库的无空格锚点目录(junction → `D:\Coding\Coding Library\20260522 OpenCode Free测试\<名>`),一次建好永不重构。
+- 运行中的 DSH 进程占着旧链接时删不掉(`fs.rmSync` 静默失败)——重启后补删。
+- `dsh plugin add` 相对路径 spec 按**调用目录**锚定;裸目录 spec 建 junction(实时同步),`file:` 是拷贝式(改代码不生效)。
+
+## 装 skill(第三方认知套件等)
+
+DSH 的 skill 是目录 bundle:`<SKILL.md + 资源>` 放进 `$DSH_HOME/skills/<name>/`(`SKILL.md` 头部 YAML frontmatter 的 `name` 即技能名),**不是 profile 依赖**。`dsh plugin add github:...` 只适用于声明了 `dsh.bundle` 的 npm 包;纯 SKILL.md 仓库(无 package.json)要用 xcopy/node 复制到 skills 目录,当前会话技能目录即刷新(无需重启)。
