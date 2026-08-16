@@ -47,10 +47,10 @@
 这是个官方标准的 **bundle 包**(`package.json` 里声明了 `dsh.bundle.patch`,profile 层栈自动识别),所以装法就是官方那条命令(前提:装了 [pnpm](https://pnpm.io/installation),`dsh plugin` 是 pnpm 转发器):
 
 ```bash
-# 已发布到 npm 之后(最省事):
+# 正式方式(已发布 npm,最省事):
 dsh plugin --profile web add @kc0ed/dsh-bottom-bar
 
-# 或者不想等发布,直接从 GitHub 装:
+# 或者不走 npm,直接从 GitHub 装:
 dsh plugin --profile web add github:kc0ed/dsh-bottom-bar
 
 # 本地开发(就是本仓库):
