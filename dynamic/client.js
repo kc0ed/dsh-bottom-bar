@@ -169,6 +169,11 @@ return {
 .dsh-peak-cell {
   white-space: nowrap;
 }
+/* 修订 95：价格列(第 2/3 列)文字居中,桶标签列保持左对齐 */
+.dsh-peak-table .dsh-peak-cell:nth-child(3n+2),
+.dsh-peak-table .dsh-peak-cell:nth-child(3n+3) {
+  text-align: center;
+}
 .dsh-peak-cell-head {
   opacity: 0.65;
   font-size: 11px;
