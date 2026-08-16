@@ -1792,6 +1792,8 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [peakNow, setPeakNow] = React.useState(initPageCfg && (initPageCfg.peakNow === 'peak' || initPageCfg.peakNow === 'offpeak') ? initPageCfg.peakNow : null)
             // 修订 77：峰谷时区——'system'=跟随系统,或 'UTC±N' 固定偏移
             const [peakTz, setPeakTz] = React.useState(initPageCfg && typeof initPageCfg.peakTimezone === 'string' ? initPageCfg.peakTimezone : 'system')
+            // 修订 108：峰谷适用渠道白名单(逗号分隔文本,默认官方 deepseek + opencode 系)
+            const [peakProvidersText, setPeakProvidersText] = React.useState(initPageCfg && Array.isArray(initPageCfg.peakProviders) ? initPageCfg.peakProviders.join(', ') : 'deepseek, opencode, opencode-go')
             const [prices, setPrices] = React.useState(null)
             const [pricesOpen, setPricesOpen] = React.useState(false)
             const [builtinOpen, setBuiltinOpen] = React.useState(false)
@@ -1812,7 +1814,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             const dropIndexRef = React.useRef(null)
             const listRef = React.useRef(null)
             const segmentsRef = React.useRef(null)
-            const optionsRef = React.useRef({ mode: 'separate', tooltip: 'auto', precision: 'compact', peakEnabled: false, peakRemind: true, peakTimezone: 'system' })
+            const optionsRef = React.useRef({ mode: 'separate', tooltip: 'auto', precision: 'compact', peakEnabled: false, peakRemind: true, peakTimezone: 'system', peakProviders: ['deepseek', 'opencode', 'opencode-go'] })
             const rowRefs = React.useRef([])
             const flipTops = React.useRef(null)
             const previewDockRef = React.useRef(null)
@@ -1881,6 +1883,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                   if (typeof result.peakEnabled === 'boolean') { setPeakEnabled(result.peakEnabled); optionsRef.current.peakEnabled = result.peakEnabled }
                   if (typeof result.peakRemind === 'boolean') { setPeakRemind(result.peakRemind); optionsRef.current.peakRemind = result.peakRemind }
                   if (typeof result.peakTimezone === 'string') { setPeakTz(result.peakTimezone); optionsRef.current.peakTimezone = result.peakTimezone }
+                  if (Array.isArray(result.peakProviders)) { setPeakProvidersText(result.peakProviders.join(', ')); optionsRef.current.peakProviders = result.peakProviders }
                   if (result.peakNow === 'peak' || result.peakNow === 'offpeak') setPeakNow(result.peakNow)
                   setLoaded(true)
                 })
@@ -1910,7 +1913,7 @@ body[data-ds-dark-theme] .dsh-price-input {
               return () => timer()
             }, [loaded])
             segmentsRef.current = segments
-            optionsRef.current = { mode, tooltip: tooltipAlways ? 'always' : 'auto', precision, peakEnabled, peakRemind, peakTimezone: peakTz }
+            optionsRef.current = { mode, tooltip: tooltipAlways ? 'always' : 'auto', precision, peakEnabled, peakRemind, peakTimezone: peakTz, peakProviders: peakProvidersText.split(',').map((s) => s.trim()).filter(Boolean) }
             React.useLayoutEffect(() => {
               if (flipTops.current === null) return
               const tops = flipTops.current
@@ -1948,6 +1951,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                   if (typeof result.peakEnabled === 'boolean') { setPeakEnabled(result.peakEnabled); optionsRef.current.peakEnabled = result.peakEnabled }
                   if (typeof result.peakRemind === 'boolean') { setPeakRemind(result.peakRemind); optionsRef.current.peakRemind = result.peakRemind }
                   if (typeof result.peakTimezone === 'string') { setPeakTz(result.peakTimezone); optionsRef.current.peakTimezone = result.peakTimezone }
+                  if (Array.isArray(result.peakProviders)) { setPeakProvidersText(result.peakProviders.join(', ')); optionsRef.current.peakProviders = result.peakProviders }
                   if (result.peakNow === 'peak' || result.peakNow === 'offpeak') setPeakNow(result.peakNow)
                 })
                 .catch((err) => console.error('dsh-bottom-bar: setConfig failed', err))
@@ -2103,6 +2107,14 @@ body[data-ds-dark-theme] .dsh-price-input {
             const togglePeakRemind = () => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, peakRemind: !peakRemind }) }
             // 修订 77：峰谷时区切换
             const togglePeakTz = (v) => { if (!Array.isArray(segments)) return; saveOptions({ ...optionsRef.current, peakTimezone: v }) }
+            // 修订 108：峰谷适用渠道保存(逗号分隔 → 数组)
+            const savePeakProviders = () => {
+              if (!Array.isArray(segments)) return
+              const list = peakProvidersText.split(',').map((s) => s.trim()).filter(Boolean)
+              if (list.length === 0) return
+              setPeakProvidersText(list.join(', '))
+              saveOptions({ ...optionsRef.current, peakProviders: list })
+            }
             const reset = () => {
               if (!Array.isArray(segments)) return
               host.call('reset-composition').then((result) => {
@@ -2113,6 +2125,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                 if (typeof result.peakEnabled === 'boolean') { setPeakEnabled(result.peakEnabled); optionsRef.current.peakEnabled = result.peakEnabled }
                 if (typeof result.peakRemind === 'boolean') { setPeakRemind(result.peakRemind); optionsRef.current.peakRemind = result.peakRemind }
                 if (typeof result.peakTimezone === 'string') { setPeakTz(result.peakTimezone); optionsRef.current.peakTimezone = result.peakTimezone }
+                if (Array.isArray(result.peakProviders)) { setPeakProvidersText(result.peakProviders.join(', ')); optionsRef.current.peakProviders = result.peakProviders }
                 if (result.peakNow === 'peak' || result.peakNow === 'offpeak') setPeakNow(result.peakNow)
               }).catch(() => {})
             }
@@ -2479,7 +2492,12 @@ body[data-ds-dark-theme] .dsh-price-input {
                   React.createElement('span', { className: 'dsh-switch-knob' }),
                 ),
               ),
-              React.createElement('p', { className: 'dsh-comp-desc' }, 'DeepSeek 自 2026-08-17 00:00 起实行峰谷定价：高峰时段 9:00-12:00 / 14:00-18:00（按所选时区，默认跟随系统），空闲时段为高峰一半。「计价」按高峰价算钱（仅官方 deepseek 渠道生效）；「提醒」只显示 ⏱ 高峰/空闲 与时段标注，不影响价格。'),
+              // 修订 108：峰谷适用渠道白名单(opencode 2026 也实施峰谷,可自行添加渠道)
+              React.createElement('div', { className: 'dsh-comp-row' },
+                React.createElement('span', { className: 'dsh-comp-label' }, '峰谷适用渠道（逗号分隔）'),
+                React.createElement('input', { type: 'text', className: 'dsh-comp-input', style: { flex: 1, minWidth: 0 }, value: peakProvidersText, disabled: offline, onChange: (e) => setPeakProvidersText(e.target.value), onBlur: savePeakProviders, placeholder: 'deepseek, opencode, opencode-go' }),
+              ),
+              React.createElement('p', { className: 'dsh-comp-desc' }, 'DeepSeek 自 2026-08-17 00:00 起实行峰谷定价：高峰时段 9:00-12:00 / 14:00-18:00（按所选时区，默认跟随系统），空闲时段为高峰一半。opencode 官方同样实施该峰谷时段（UTC 01:00-04:00 / 06:00-10:00）。「计价」按高峰价算钱，仅对上方「适用渠道」生效（默认官方 deepseek + opencode 系）；「提醒」只显示 ⏱ 高峰/空闲 与时段标注，不影响价格。'),
               React.createElement('div', { className: 'dsh-preview' },
                 React.createElement('div', { className: 'dsh-preview-header' },
                   React.createElement('span', { className: 'dsh-preview-label' }, '底栏效果预览'),
