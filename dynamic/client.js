@@ -1825,6 +1825,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [diag, setDiag] = React.useState(null)
             // 修订 34：客户端全量用量面板（浏览器侧全量折叠 = 唯一权威源）
             const [fullUsage, setFullUsage] = React.useState(null)
+            const [fullAll, setFullAll] = React.useState(null)
             React.useEffect(() => {
               const onKeyDown = (e) => {
                 if (e.key === 'Escape' && selectedIdsRef.current.size > 0) {
@@ -1886,7 +1887,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                 .catch(() => {})
               host.call('get-prices').then((result) => { if (!cancelled && result.prices) setPrices(result.prices); if (!cancelled && Array.isArray(result.usedModels)) setUsedModels(result.usedModels) }).catch(() => {})
               host.call('diagnostics').then((result) => { if (!cancelled) setDiag(result) }).catch(() => {})
-              host.call('get-client-usage').then((result) => { if (!cancelled && result.usage) setFullUsage(result.usage) }).catch(() => {})
+              host.call('get-client-usage').then((result) => { if (!cancelled && result.usage) setFullUsage(result.usage); if (!cancelled && result.all) setFullAll(result.all) }).catch(() => {})
               return () => { cancelled = true }
             }, [])
             // 修订 34/42：客户端全量面板每 1s 刷新（host 侧缓存底栏捎带的用量——
@@ -1897,6 +1898,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                 host.call('get-client-usage').then((result) => {
                   if (!alive || !result.usage) return
                   setFullUsage(result.usage)
+                  if (result.all) setFullAll(result.all)
                   if (result.usage.peak !== undefined && (result.usage.peak.window === 'peak' || result.usage.peak.window === 'offpeak')) setPeakNow(result.usage.peak.window)
                 }).catch(() => {})
               }, 1000)
@@ -2237,6 +2239,67 @@ body[data-ds-dark-theme] .dsh-price-input {
             const fullDivider = { borderTop: '1px solid var(--dsw-alias-border-l2)', margin: '3px 0' }
             const fullValue = { fontWeight: 500, color: 'var(--dsw-alias-label-primary)' }
             const fullTok = { fontSize: 10, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' }
+            // 修订 106：导出费用统计为 PNG(canvas 手绘分享卡)
+            const exportSummaryImage = () => {
+              const all = fullAll
+              if (!all || all.hasUsage !== true) return
+              const pad = 16
+              const w = 660
+              const lineH = 20
+              const rows = all.rows.slice(0, 30)
+              const h = pad * 2 + 40 + 30 + 20 + rows.length * lineH + 34 + 20
+              const cv = document.createElement('canvas')
+              cv.width = w
+              cv.height = h
+              const ctx = cv.getContext('2d')
+              const isDark = document.body !== null && document.body.getAttribute('data-ds-dark-theme') !== null
+              ctx.fillStyle = isDark ? '#1c1c1f' : '#ffffff'
+              ctx.fillRect(0, 0, w, h)
+              ctx.textBaseline = 'alphabetic'
+              ctx.fillStyle = isDark ? '#e9e9e7' : '#1a1a18'
+              ctx.font = '600 17px sans-serif'
+              ctx.fillText('DSH 费用统计', pad, pad + 16)
+              ctx.fillStyle = isDark ? '#b0b0ae' : '#6b6b68'
+              ctx.font = 'normal 11px sans-serif'
+              ctx.fillText('综合所有渠道/模型 · ' + (all.at ? new Date(all.at).toLocaleString() : ''), pad, pad + 32)
+              let y = pad + 52
+              ctx.fillStyle = isDark ? '#e0e0de' : '#2a2a28'
+              ctx.font = '600 13px sans-serif'
+              ctx.fillText('总 tokens: ' + formatTokens(all.totalTokens), pad, y)
+              const totalText = Object.keys(all.totals).map((k) => compactMoney(all.totals[k], k, 'full')).join('   ')
+              ctx.fillText('预估费用: ' + totalText, pad, y + 20)
+              if (all.hitRate !== null) ctx.fillText('缓存命中率: ' + all.hitRate + '%', pad, y + 40)
+              y += 30 + 34
+              ctx.strokeStyle = isDark ? '#3a3a3d' : '#e0e0df'
+              ctx.beginPath()
+              ctx.moveTo(pad, y - 10)
+              ctx.lineTo(w - pad, y - 10)
+              ctx.stroke()
+              for (const r of rows) {
+                ctx.fillStyle = isDark ? '#cfcfcd' : '#333'
+                ctx.font = 'normal 12px sans-serif'
+                ctx.fillText(r.key, pad, y)
+                ctx.textAlign = 'right'
+                ctx.fillText(formatTokens(r.tokens) + ' tok', w - pad, y)
+                ctx.textAlign = 'left'
+                const costText = compactMoney(r.cost, r.currency, 'compact')
+                ctx.fillStyle = r.free ? '#10b981' : (isDark ? '#9a9a98' : '#777')
+                ctx.fillText((r.free ? '免费 ' : '') + costText, pad + 330, y)
+                y += lineH
+              }
+              if (all.freeCount > 0) {
+                ctx.fillStyle = '#10b981'
+                ctx.font = '600 12px sans-serif'
+                ctx.fillText('其中 ' + all.freeCount + ' 个免费渠道,共省 ¥/USD ' + Object.keys(all.totals).map((k) => compactMoney(all.totals[k], k, 'full')).join(' '), pad, y + 6)
+              }
+              ctx.fillStyle = isDark ? '#8a8a88' : '#999'
+              ctx.font = 'normal 10px sans-serif'
+              ctx.fillText('由 dsh-bottom-bar 生成 · 仅供参考,实际以账单为准', pad, h - 8)
+              const a = document.createElement('a')
+              a.download = 'dsh-cost-summary-' + Date.now() + '.png'
+              a.href = cv.toDataURL('image/png')
+              a.click()
+            }
             const fallbackSegments = loaded ? DEFAULT_COMPOSITION : null
             const effectiveSegments = Array.isArray(segments) ? segments : fallbackSegments
             if (effectiveSegments === null) {
@@ -2546,65 +2609,49 @@ body[data-ds-dark-theme] .dsh-price-input {
                   )
                 })(),
               ),
-              // 修订 38：客户端全量面板按用户参考稿重排——标题行（小号大写样式
-              // 标题 + 右侧绿色「命中率」徽章）、模型名、token 2×2 网格（值 +
-              // 灰色 tok 小后缀）、费用 2×2 网格、虚线顶边总计栏（品牌色加粗）
+              // 修订 106：综合全部会话/渠道/模型 —— fullAll 来自 host summaryAll(账本汇总)
               React.createElement('div', { className: 'dsh-fullusage', style: { display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-interactive-bg-hover)', fontSize: 12, lineHeight: '18px', color: 'var(--dsw-alias-label-secondary)', fontVariantNumeric: 'tabular-nums' } },
                 React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
-                  React.createElement('span', { style: { fontSize: 10, lineHeight: '16px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--dsw-alias-label-tertiary)' } }, '客户端全量 · 权威源'),
+                  React.createElement('span', { style: { fontSize: 10, lineHeight: '16px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--dsw-alias-label-tertiary)' } }, '费用统计 · 综合全部'),
                   React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, lineHeight: '16px', fontWeight: 600, color: '#10b981', background: 'rgba(16, 185, 129, 0.12)', padding: '1px 6px', borderRadius: 4, whiteSpace: 'nowrap' } },
-                    '命中率 ' + (fullUsage === null ? '—' : (() => { const d = fullUsage.uncachedInput + fullUsage.cacheRead + fullUsage.cacheWrite; return d === 0 ? '—' : Math.round(fullUsage.cacheRead / d * 100) + '%' })()),
+                    '命中率 ' + (fullAll === null || fullAll.hitRate === null ? '—' : fullAll.hitRate + '%'),
                   ),
                 ),
-                fullUsage === null
-                  ? React.createElement('span', { style: { fontSize: 11, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' } }, '等待底栏轮询…')
+                fullAll === null || fullAll.hasUsage !== true
+                  ? React.createElement('span', { style: { fontSize: 11, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' } }, '暂无用量数据…')
                   : React.createElement(React.Fragment, null,
-                    React.createElement('span', { style: { fontWeight: 600, fontSize: 12, lineHeight: '18px', color: 'var(--dsw-alias-label-primary)' } }, fullUsage.model),
-                    fullUsage.peak !== undefined && fullUsage.peak.enabled && React.createElement('span', { style: { fontSize: 11, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' } }, fullUsage.peak.window === 'peak' ? '当前:高峰时段(9:00-12:00 / 14:00-18:00)' : '当前:空闲时段'),
-                    React.createElement('div', { style: fullDivider }),
                     React.createElement('div', { style: fullGrid },
                       React.createElement('div', { style: fullCell },
                         React.createElement('span', null, '未缓存输入'),
-                        React.createElement('span', { style: fullValue }, formatTokens(fullUsage.uncachedInput), React.createElement('small', { style: fullTok }, ' tok')),
+                        React.createElement('span', { style: fullValue }, formatTokens(fullAll.tokens.uncachedInput), React.createElement('small', { style: fullTok }, ' tok')),
                       ),
                       React.createElement('div', { style: fullCell },
                         React.createElement('span', null, '缓存读'),
-                        React.createElement('span', { style: fullValue }, formatTokens(fullUsage.cacheRead), React.createElement('small', { style: fullTok }, ' tok')),
+                        React.createElement('span', { style: fullValue }, formatTokens(fullAll.tokens.cacheRead), React.createElement('small', { style: fullTok }, ' tok')),
                       ),
                       React.createElement('div', { style: fullCell },
                         React.createElement('span', null, '缓存写'),
-                        React.createElement('span', { style: fullValue }, formatTokens(fullUsage.cacheWrite), React.createElement('small', { style: fullTok }, ' tok')),
+                        React.createElement('span', { style: fullValue }, formatTokens(fullAll.tokens.cacheWrite), React.createElement('small', { style: fullTok }, ' tok')),
                       ),
                       React.createElement('div', { style: fullCell },
                         React.createElement('span', null, '输出'),
-                        React.createElement('span', { style: fullValue }, formatTokens(fullUsage.output), React.createElement('small', { style: fullTok }, ' tok')),
+                        React.createElement('span', { style: fullValue }, formatTokens(fullAll.tokens.output), React.createElement('small', { style: fullTok }, ' tok')),
                       ),
                     ),
-                    fullUsage.total !== null && fullUsage.total !== undefined && React.createElement(React.Fragment, null,
-                      React.createElement('div', { style: fullDivider }),
-                      React.createElement('div', { style: fullGrid },
-                        React.createElement('div', { style: fullCell },
-                          React.createElement('span', null, '输入费用'),
-                          React.createElement('span', null, compactMoney(fullUsage.inCost, fullUsage.currency, 'full')),
-                        ),
-                        React.createElement('div', { style: fullCell },
-                          React.createElement('span', null, '缓存读费用'),
-                          React.createElement('span', null, compactMoney(fullUsage.cacheReadCost, fullUsage.currency, 'full')),
-                        ),
-                        React.createElement('div', { style: fullCell },
-                          React.createElement('span', null, '缓存写费用'),
-                          React.createElement('span', null, compactMoney(fullUsage.cacheWriteCost, fullUsage.currency, 'full')),
-                        ),
-                        React.createElement('div', { style: fullCell },
-                          React.createElement('span', null, '输出费用'),
-                          React.createElement('span', null, compactMoney(fullUsage.outCost, fullUsage.currency, 'full')),
-                        ),
+                    React.createElement('div', { style: fullDivider }),
+                    fullAll.rows.length > 0 && fullAll.rows.map((r) => React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 } },
+                      React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)', whiteSpace: 'nowrap' }, title: r.key }, r.key),
+                      React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' } },
+                        React.createElement('small', { style: fullTok }, formatTokens(r.tokens) + ' tok'),
+                        React.createElement('span', { style: r.free ? { color: '#10b981', fontWeight: 600 } : { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, r.free ? '免费' : compactMoney(r.cost, r.currency, 'compact')),
                       ),
-                      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, marginTop: 2, borderTop: '1px dashed var(--dsw-alias-border-l2)' } },
-                        React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)' } }, '总计费用'),
-                        React.createElement('span', { style: { fontSize: 14, lineHeight: '20px', fontWeight: 700, color: 'var(--dsw-alias-brand-primary)' } }, compactMoney(fullUsage.total, fullUsage.currency, 'full')),
-                      ),
+                    )),
+                    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, marginTop: 2, borderTop: '1px dashed var(--dsw-alias-border-l2)' } },
+                      React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)' } }, '总计费用'),
+                      React.createElement('span', { style: { fontSize: 14, lineHeight: '20px', fontWeight: 700, color: 'var(--dsw-alias-brand-primary)' } }, Object.keys(fullAll.totals).map((k) => compactMoney(fullAll.totals[k], k, 'full')).join('   ')),
                     ),
+                    fullAll.freeCount > 0 && React.createElement('button', { style: { alignSelf: 'flex-start', border: 'none', background: 'none', color: '#10b981', fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: 0 } }, '其中 ' + fullAll.freeCount + ' 个免费渠道'),
+                    React.createElement('button', { className: 'dsh-comp-btn dsh-comp-reset', onClick: exportSummaryImage, style: { alignSelf: 'flex-start' } }, '📤 导出图片'),
                   ),
               ),
               React.createElement('div', { className: 'dsh-comp-desc', style: { whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginTop: 8 } },
