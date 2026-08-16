@@ -1086,6 +1086,43 @@ body[data-ds-dark-theme] .dsh-price-input {
   font-size: 12px;
   font-weight: 600;
   line-height: 18px;
+}
+.dsh-price-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dsw-alias-label-tertiary);
+}
+.dsh-price-group + .dsh-price-row {
+  margin-top: 2px;
+}
+.dsh-detail-src {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 4px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+}
+.dsh-detail-src-official {
+  color: var(--dsw-alias-label-tertiary);
+  background: color-mix(in srgb, var(--dsw-alias-label-tertiary) 10%, transparent);
+}
+.dsh-detail-src-global {
+  color: var(--dsw-alias-label-secondary);
+  background: color-mix(in srgb, var(--dsw-alias-label-secondary) 10%, transparent);
+}
+.dsh-detail-src-channel {
+  color: var(--dsw-alias-brand-primary);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
 }`)
         const usageOutputTokens = (usage) => {
           if (typeof usage !== 'object' || usage === null) return null
@@ -1616,6 +1653,18 @@ body[data-ds-dark-theme] .dsh-price-input {
               if (Array.isArray(estimate.priced)) {
                 for (const p of estimate.priced) {
                   nodes.push(React.createElement('div', { className: 'dsh-detail-model', key: 'm' + p.model }, p.model))
+                  // 修订 103：价格来源标注(免费模型已有绿色徽章,不再重复)
+                  if (p.free !== true) {
+                    const srcMeta = {
+                      official: ['按官方价估算', 'dsh-detail-src-official'],
+                      global: ['你的全局价', 'dsh-detail-src-global'],
+                      channel: ['渠道特选价', 'dsh-detail-src-channel'],
+                    }
+                    const sm = srcMeta[p.source]
+                    if (sm !== undefined) {
+                      nodes.push(React.createElement('span', { className: 'dsh-detail-src ' + sm[1], key: 'src' + p.model }, sm[0]))
+                    }
+                  }
                   const buckets = [
                     { label: '输入', tokens: p.uncachedInput, unit: p.priceIn, cost: p.inCost },
                     { label: '缓存读', tokens: p.cacheRead, unit: p.priceCacheRead, cost: p.cacheReadCost },
@@ -1714,6 +1763,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [prices, setPrices] = React.useState(null)
             const [pricesOpen, setPricesOpen] = React.useState(false)
             const [builtinOpen, setBuiltinOpen] = React.useState(false)
+            const [usedModels, setUsedModels] = React.useState([])
             const [vendorTpl, setVendorTpl] = React.useState('auto')
             const [newModel, setNewModel] = React.useState('')
             const [newIn, setNewIn] = React.useState('')
@@ -1801,7 +1851,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                   setLoaded(true)
                 })
                 .catch(() => {})
-              host.call('get-prices').then((result) => { if (!cancelled && result.prices) setPrices(result.prices) }).catch(() => {})
+              host.call('get-prices').then((result) => { if (!cancelled && result.prices) setPrices(result.prices); if (!cancelled && Array.isArray(result.usedModels)) setUsedModels(result.usedModels) }).catch(() => {})
               host.call('diagnostics').then((result) => { if (!cancelled) setDiag(result) }).catch(() => {})
               host.call('get-client-usage').then((result) => { if (!cancelled && result.usage) setFullUsage(result.usage) }).catch(() => {})
               return () => { cancelled = true }
@@ -2234,6 +2284,15 @@ body[data-ds-dark-theme] .dsh-price-input {
             const priceList = Array.isArray(prices) ? prices : []
             const userPriceRows = priceList.filter((p) => p.configured === true || p.builtin !== true).map(priceRowEl)
             const builtinPriceRows = priceList.filter((p) => !(p.configured === true || p.builtin !== true)).map(priceRowEl)
+            // 修订 103：渠道分层——渠道特选(键含 '/')与全局默认(纯模型名)分开展示
+            const channelRows = priceList.filter((p) => (p.configured === true || p.builtin !== true) && p.model.indexOf('/') !== -1)
+            const globalRows = priceList.filter((p) => (p.configured === true || p.builtin !== true) && p.model.indexOf('/') === -1)
+            // 用过的模型:账本汇总,未配置的一键按官方价配置(渠道特选,用完整 渠道/模型 键)
+            const configuredKeys = new Set(priceList.filter((p) => p.configured === true).map((p) => p.model))
+            const usedUnconfigured = Array.isArray(usedModels) ? usedModels.filter((u) => !configuredKeys.has(u.key)) : []
+            const configureUsed = (key) => {
+              host.call('set-price', { model: key, price: {} }).then((result) => { if (result.prices) setPrices(result.prices) }).catch((err) => console.error('dsh-bottom-bar: configure-used failed', err))
+            }
             const rows = effectiveSegments.map((seg, index) => {
               const sampleDef = PREVIEW_TEXTS[seg.id]
               const sampleText = sampleDef !== undefined
@@ -2404,7 +2463,16 @@ body[data-ds-dark-theme] .dsh-price-input {
                   React.createElement('span', { style: { width: 32 } }, ''),
                 ),
                 userPriceRows.length === 0 && builtinPriceRows.length === 0 && React.createElement('div', { className: 'dsh-price-empty' }, '还没有配置任何价格 —— 在下方「添加/更新价格」里录入你的模型'),
-                userPriceRows,
+                channelRows.length > 0 && React.createElement('div', { className: 'dsh-price-group', key: 'g-channel' }, '渠道特选（只覆盖这个渠道）'),
+                channelRows.map(priceRowEl),
+                globalRows.length > 0 && React.createElement('div', { className: 'dsh-price-group', key: 'g-global' }, '全局默认（所有渠道通用）'),
+                globalRows.map(priceRowEl),
+                usedUnconfigured.length > 0 && React.createElement('div', { className: 'dsh-price-group', key: 'g-used' }, '用过的模型 · 未配置价格'),
+                usedUnconfigured.map((u) => React.createElement('div', { className: 'dsh-price-row', key: 'u' + u.key },
+                  React.createElement('span', { className: 'dsh-price-model', title: u.key }, u.key),
+                  React.createElement('span', { style: { flex: 'none', fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, formatTokens(u.tokens) + ' tok'),
+                  React.createElement('button', { className: 'dsh-comp-btn', style: { flex: 'none' }, title: '按官方价一键配置该渠道价格', onClick: () => configureUsed(u.key) }, '按官方价配置'),
+                )),
                 builtinPriceRows.length > 0 && React.createElement('button', { className: 'dsh-price-toggle', onClick: () => setBuiltinOpen(!builtinOpen) },
                   React.createElement('span', null, '内置默认价格'),
                   React.createElement('span', null, builtinPriceRows.length + ' 个' + (builtinOpen ? ' ▾' : ' ▸')),
