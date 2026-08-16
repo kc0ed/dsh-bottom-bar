@@ -88,8 +88,7 @@ return {
   width: 100%;
   padding: 6px calc(var(--dsh-composer-side-clearance) + 16px) 2px;
   color: var(--dsw-alias-label-tertiary);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  white-space: normal;
   margin: 0 auto;
   font-family: var(--dsw-font-family);
   font-size: 12px;
@@ -97,7 +96,6 @@ return {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
   display: block;
-  overflow: hidden;
 }
 .dsh-stats-sep {
   color: var(--dsw-alias-label-tertiary);
@@ -121,6 +119,7 @@ return {
   margin: 0 -1px;
   transition: all 0.14s ease;
   display: inline-block;
+  white-space: nowrap;
 }
 .dsh-seg:hover {
   background: var(--dsw-alias-interactive-bg-hover);
