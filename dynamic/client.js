@@ -1999,17 +1999,29 @@ body[data-ds-dark-theme] .dsh-price-input {
             const TZ_OPTIONS = ['system', 'UTC']
             for (let tzi = 1; tzi <= 12; tzi++) TZ_OPTIONS.push('UTC+' + tzi)
             for (let tzi = 1; tzi <= 12; tzi++) TZ_OPTIONS.push('UTC-' + tzi)
+            // 修订 100：厂商比例模板只按 2026 年模型采样（旧系列不进下拉,
+            // auto 识别时内联兼容比例,见 computePreviewPrice）。
             const VENDOR_TEMPLATES = [
-              { id: 'auto', name: '⚡ 智能自动识别（按模型名匹配厂商公式）' },
+              { id: 'auto', name: '⚡ 智能自动识别（按模型名匹配 2026 厂商比例）' },
               { id: 'deepseek-v4', name: '🐳 DeepSeek V4 空闲价 (1 : 3 : 0.033 : 0) · CNY', currency: 'CNY', out: 3, read: 0.0333, write: 0 },
-              { id: 'deepseek-v3', name: '🐳 DeepSeek V3/R1 (1 : 4 : 0.25 : 1.0) · CNY', currency: 'CNY', out: 4, read: 0.25, write: 1.0 },
               { id: 'claude', name: '⚡ Anthropic Claude (1 : 5 : 0.1 : 1.25) · USD', currency: 'USD', out: 5, read: 0.1, write: 1.25 },
-              { id: 'openai', name: '🧠 OpenAI GPT/o-series (1 : 4 : 0.5 : 1.25) · USD', currency: 'USD', out: 4, read: 0.5, write: 1.25 },
-              { id: 'gemini', name: '🌐 Google Gemini (1 : 4 : 0.25 : 1.0) · USD', currency: 'USD', out: 4, read: 0.25, write: 1.0 },
-              { id: 'kimi', name: '🌙 Kimi / 月之暗面 (1 : 4 : 0.2 : 1.0) · CNY', currency: 'CNY', out: 4, read: 0.2, write: 1.0 },
-              { id: 'qwen', name: '🇨🇳 通义千问 / GLM / MiniMax (1 : 3.5 : 0.25 : 1.0) · CNY', currency: 'CNY', out: 3.5, read: 0.25, write: 1.0 },
+              { id: 'openai-gpt5', name: '🧠 OpenAI GPT-5.x (1 : 6 : 0.1 : 1.25) · USD', currency: 'USD', out: 6, read: 0.1, write: 1.25 },
+              { id: 'gemini', name: '🌐 Google Gemini 3.x (1 : 4 : 0.25 : 1.0) · USD', currency: 'USD', out: 4, read: 0.25, write: 1.0 },
+              { id: 'kimi', name: '🌙 Kimi K3 (1 : 4 : 0.2 : 1.0) · CNY', currency: 'CNY', out: 4, read: 0.2, write: 1.0 },
+              { id: 'qwen35', name: '🇨🇳 Qwen 3.5 大模型 (1 : 5 : 0.167 : 1.0) · CNY', currency: 'CNY', out: 5, read: 0.1667, write: 1.0 },
+              { id: 'glm', name: '📘 智谱 GLM 5.x (1 : 3.5 : 0.2 : 1.0) · CNY', currency: 'CNY', out: 3.5, read: 0.2, write: 1.0 },
+              { id: 'minimax', name: '🤖 MiniMax M3 (1 : 4 : 0.1 : 1.0) · CNY', currency: 'CNY', out: 4, read: 0.1, write: 1.0 },
+              { id: 'doubao', name: '⚡ 字节豆包 Seed 2.0 (1 : 4 : 0.1 : 1.0) · CNY', currency: 'CNY', out: 4, read: 0.1, write: 1.0 },
+              { id: 'grok', name: '🪐 xAI Grok 4 (1 : 5 : 0.1 : 1.0) · USD', currency: 'USD', out: 5, read: 0.1, write: 1.0 },
               { id: 'custom', name: '⚙️ 手动填写每个价格桶' },
             ]
+            // 旧系列兼容比例（2025 及更早,不进下拉;auto 命中时内联使用,不写错价）
+            const LEGACY_TPLS = {
+              openaiClassic: { currency: 'USD', out: 4, read: 0.5, write: 1.0 },
+              deepseekV3: { currency: 'CNY', out: 4, read: 0.25, write: 1.0 },
+              qwenClassic: { currency: 'CNY', out: 3, read: 0.25, write: 1.0 },
+              generic: { currency: 'USD', out: 4, read: 0.25, write: 1.0 },
+            }
 
             const computePreviewPrice = () => {
               const inVal = Number(newIn)
@@ -2025,19 +2037,26 @@ body[data-ds-dark-theme] .dsh-price-input {
                 }
               }
               let tpl = VENDOR_TEMPLATES.find((t) => t.id === vendorTpl)
+              let tplName = ''
               if (!tpl || tpl.id === 'auto') {
                 const m = newModel.toLowerCase()
                 if (m.includes('claude') || m.includes('anthropic')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'claude')
-                else if (m.includes('gpt') || m.includes('openai') || m.includes('o1') || m.includes('o3') || m.includes('o4')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'openai')
-                else if (m.includes('gemini') || m.includes('google')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'gemini')
+                else if (m.includes('grok')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'grok')
+                else if (m.includes('gpt') || m.includes('openai') || m.includes('o1') || m.includes('o3') || m.includes('o4')) {
+                  // GPT-5.x 用 2026 模板;4o/o 系列旧模型用兼容比例
+                  tpl = m.includes('gpt-5') ? VENDOR_TEMPLATES.find((t) => t.id === 'openai-gpt5') : LEGACY_TPLS.openaiClassic
+                } else if (m.includes('gemini') || m.includes('google')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'gemini')
                 else if (m.includes('kimi') || m.includes('moonshot')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'kimi')
                 else if (m.includes('deepseek')) {
-                  const isV4 = m.includes('v4') || m.includes('flash')
-                  tpl = isV4 ? VENDOR_TEMPLATES.find((t) => t.id === 'deepseek-v4') : VENDOR_TEMPLATES.find((t) => t.id === 'deepseek-v3')
-                } else if (m.includes('qwen') || m.includes('glm') || m.includes('minimax') || m.includes('doubao')) {
-                  tpl = VENDOR_TEMPLATES.find((t) => t.id === 'qwen')
+                  tpl = (m.includes('v4') || m.includes('flash')) ? VENDOR_TEMPLATES.find((t) => t.id === 'deepseek-v4') : LEGACY_TPLS.deepseekV3
+                } else if (m.includes('glm')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'glm')
+                else if (m.includes('minimax')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'minimax')
+                else if (m.includes('doubao')) tpl = VENDOR_TEMPLATES.find((t) => t.id === 'doubao')
+                else if (m.includes('qwen')) {
+                  tpl = (m.includes('qwen3-5') || m.includes('qwen3.5')) ? VENDOR_TEMPLATES.find((t) => t.id === 'qwen35') : LEGACY_TPLS.qwenClassic
                 } else {
-                  tpl = VENDOR_TEMPLATES.find((t) => t.id === 'deepseek-v4')
+                  tpl = LEGACY_TPLS.generic
+                  tplName = '通用比例（未识别厂商）'
                 }
               }
               const curr = tpl.currency || 'CNY'
@@ -2047,7 +2066,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                 cacheRead: Math.round(inPrice * tpl.read * 1000) / 1000,
                 cacheWrite: Math.round(inPrice * tpl.write * 1000) / 1000,
                 out: Math.round(inPrice * tpl.out * 1000) / 1000,
-                tplName: tpl.name,
+                tplName: tplName !== '' ? tplName : tpl.name,
               }
             }
 
