@@ -1,95 +1,74 @@
 # @kc0ed/dsh-bottom-bar
 
-嗯……简单说,这就是那个「底栏统计 + 预估费用」插件。
+DSH 底栏统计 + 预估费用插件:把聊天界面最底下那行统计接管过来,做成**能自己组装**的样子——想显示啥显示啥,还能拖拽排序,末尾缀一个**预估费用**,花钱心里有数。
 
-你在 DSH 聊天界面最底下看到的那一行统计(轮数 / 时长 / 吞吐 / token / 费用那些),本来官方有一行,但太素了,咱把它接管过来,换成了**能自己组装**的版本——8 个统计段,想显示啥显示啥,还能拖拽排序,末尾缀一个**预估费用**,花钱心里有数。
-
-(对,截图是早期版本的,现在好看多了,懒得换图,意思到了就行。)
+(截图是早期版本的,现在好看多了,意思到了就行。)
 
 <img width="500" alt="QQ_1786701111767" src="https://github.com/user-attachments/assets/92e20843-573f-4085-8853-c25aa44e3137" />
 <img width="500" alt="image" src="https://github.com/user-attachments/assets/93508b29-bbff-4a71-94f6-7cdb4e497ad5" />
 
-## 现在到哪一步了(2026-08-15 版)
+## 安装
 
-已经迭代到 **修订 97** 了,一路从「能跑」干到「好看」:
+前提:装了 [pnpm](https://pnpm.io/installation)。然后**一条命令**:
 
-- ✅ **静态包**是正式形态:写进 DSH 配置后自动加载,重启不丢(你现在装的就是它)
-- ✅ **账本持久化**:用量只追加、永不重算,重启从账本恢复接着记
-- ✅ **主题跟随**:弹层、光效、高亮全走官方 token,切什么主题自动变色,绝不写死
-- ✅ **DeepSeek 峰谷定价**:9–12 点 / 14–18 点高峰价自动切换(时区可选),详情弹层里还能滑杆切模型比价
-- ✅ **速度**:底栏 1s 心跳、设置面板 1s 刷新、弹层秒出
-- ⏸️ 动态插件是历史形态(会话里跑的),除非调试否则别碰——**两个实例同时写一个账本会打架**
+```bash
+dsh plugin --profile web add @kc0ed/dsh-bottom-bar
+```
 
-## 它能干点啥(人话版)
+- 想装到别的 profile(比如 headless)就把 `web` 换成 profile 名
+- 不想走 npm,也可以直接从 GitHub 装:`dsh plugin --profile web add github:kc0ed/dsh-bottom-bar`
+- 这条命令会自动:初始化 profile(首次)→ 装包 → 把插件写进 `dsh.profile.bundles` 层清单。**装完啥都不用手改**
+
+装完记得:
+
+1. **彻底退出 DSH 再重启**(`dsh web` 前老进程得死透,刷新页面不算)
+2. 浏览器 **Ctrl+Shift+R 硬刷新**——不是没装上,是缓存记性好
+
+卸载:`dsh plugin --profile web remove @kc0ed/dsh-bottom-bar`(依赖和层栈一起清)
+
+> ⚠️ 装了静态包之后,别再同时跑「动态插件」形态,两个实例写同一个账本会打架。
+
+## 它能干点啥
 
 **底栏那行字:**
 
 - 8 个统计段:轮/步、LLM 时长、工具调用时长、首 token 平均、吞吐 tok/s、缓存命中、输入/输出 token、**预估费用**
-- 每段可开关、可拖拽排序;按住 **Ctrl 点选**还能批量多选,整批拖走(有悬浮条提示,全选/反选/取消都安排上了)
+- 每段可开关、可拖拽排序;按住 **Ctrl 点选**还能批量多选,整批拖走(全选/反选/取消都有)
 - 行太长被截断?悬停出黑条看完整行(可设「始终显示」)
 - 点任意分段 → 弹出**明细面板**:费用段是逐模型的单价 / 各桶 token / 金额 / 小计 / 总计,其他段是原始数值
 
 **设置 → 底栏(设置页那个区块):**
 
-- **预览区**:改配置的同时实时看效果;悬停还能「预演」未启用的段插进去长啥样,不点不生效
-- **价格表**:内置 DeepSeek V4/V3、Claude、OpenAI、Gemini、Kimi、通义等**厂商模板**,新增模型只填输入价,其余按模板自动派生;也支持手动填每个桶(币种可换、缓存桶可留空)
-- 配置有 **localStorage 水合**——手动刷新网页不会闪回默认值
-- 底部「客户端全量 · 权威源」卡片:当前会话四桶用量 + 命中率 + 费用拆分,1s 实时刷新
+- **预览区**:改配置的同时实时看效果;悬停还能「预演」未启用的段插进去长啥样
+- **价格表**:内置 DeepSeek V4/V3、Claude、OpenAI、Gemini、Kimi、通义等**厂商模板**,新增模型只填输入价,其余按模板自动派生;也支持手动填每个桶(币种可换)
+- 配置有 **localStorage 水合**——刷新网页不会闪回默认值
+- 「客户端全量 · 权威源」卡片:当前会话四桶用量 + 命中率 + 费用拆分,1s 实时刷新
 
 **钱和账:**
 
 - 用量按「渠道@模型」记账(比如 `opencode-go/deepseek-v4-flash`),同一模型走不同渠道分开算,不吃亏
-- 账本落盘在 `~/.dsh/cost-estimate.ledger.json`,**只追加、永不重算**;客户端捎带全量用量持续对账,明细面板和底栏永远一致
+- 账本落盘在 `~/.dsh/cost-estimate.ledger.json`,**只追加、永不重算**,重启接着记;客户端捎带全量用量持续对账,明细面板和底栏永远一致
 - 流式输出时费用实时跳,零等待
 
-## 安装(别人怎么装,就一句话)
+## DeepSeek 峰谷定价
 
-这是个官方标准的 **bundle 包**(`package.json` 里声明了 `dsh.bundle.patch`,profile 层栈自动识别),所以装法就是官方那条命令(前提:装了 [pnpm](https://pnpm.io/installation),`dsh plugin` 是 pnpm 转发器):
+DeepSeek 官方 2026-08-17 起实行高峰/空闲两档价(高峰 9:00–12:00 / 14:00–18:00,北京时间,空闲约半价)。插件支持:
 
-```bash
-# 正式方式(已发布 npm,最省事):
-dsh plugin --profile web add @kc0ed/dsh-bottom-bar
+- **峰谷计价开关**:开着就按高峰价算钱(仅对 DeepSeek 官方渠道生效;三方网关未确认是否透传官方价,不套用)
+- **峰谷提醒开关**:只显示「⏱ 高峰/空闲」和时段标注,不影响算钱——两个开关互不绑定
+- **时区可选**:默认跟随系统,也可以固定 UTC / UTC±N
+- 点底栏「⏱ 高峰」分段 → 详情弹层:当前时段、高峰/空闲窗口、三桶(输入/缓存读/输出)价格表,还能**滑杆切换模型**(flash/pro)比价
 
-# 或者不走 npm,直接从 GitHub 装:
-dsh plugin --profile web add github:kc0ed/dsh-bottom-bar
+## 常见问题
 
-# 本地开发(就是本仓库):
-dsh plugin --profile web add link:D:/你的路径/dsh-bottom-bar
-```
+- **装了但底栏没变化?** 先 Ctrl+Shift+R;还不行就彻底退出 DSH 再启动——主进程没重启,新插件不会加载
+- **价格显示「—」?** 该渠道/模型没有内置价格,去设置页价格表补一个就行
+- **费用和官方账单对不上?** 这是**估算**——按会话 token × 单价算的参考值,不包含官方优惠/活动价
 
-这条命令自动干三件事:首次用会自动初始化 profile → 在 profile 目录里跑 `pnpm add` → 装完自动把包追加进 `dsh.profile.bundles` 层清单。**装完啥都不用手改。**
+## 想改代码 / 反馈
 
-> 想装到别的 profile(比如 headless)就把 `web` 换成 profile 名。
-
-装完记得:
-
-- **彻底退出 DSH 再重启**(`dsh web` 前老进程得死透,不是刷新页面)
-- 浏览器 **Ctrl+Shift+R 硬刷新**——不是没装上,是缓存记性好
-- 卸载:`dsh plugin --profile web remove @kc0ed/dsh-bottom-bar`(依赖和层栈一起清)
-
-> ⚠️ 静态包生效后别再跑动态插件,两个实例写同一个账本会打架。
-
-### 给维护者:发布到 npm
-
-```bash
-cd dsh-bottom-bar
-npm login          # 账号得是 kc0ed(scope 归它管)
-npm publish        # publishConfig.access=public 已配好,scoped 包不会变成私有
-```
-
-## 仓库结构(好奇的话)
-
-- `lib/` — 静态包本体:`index.js`(host,`TypertRemoteService` 子类)+ `client.js`(客户端,同时是动态版的生成源)+ `typert.host.js` / `typert.remote-client.js`
-- `dynamic/` — 动态插件形态(历史遗留;`client.js` 是生成器产出的,别手改)
-- `cordis.patch.yml` — 往 profile 里插插件行的补丁
-- `scripts/` — `static-to-dynamic.cjs`(lib → dynamic 镜像)、`dynamic-to-static.cjs`(反向回写)、`tokenize-colors.cjs`(把写死的颜色批量换成主题 token,谁再写死色就跑一遍)
-- `docs/lessons.md` — 一路踩坑的教训,40+ 条,写插件前值得一读
-
-## 开发循环(改完代码的正确姿势)
-
-改 `lib/client.js` → `node scripts/static-to-dynamic.cjs lib/client.js dynamic/client.js` 同步镜像 → commit → push → 重启 DSH + Ctrl+Shift+R。就这,没了。
-
-(仓库是 junction 直连的,改完重启就是新代码——这就是「改完马上生效」的真相。)
+仓库:https://github.com/kc0ed/dsh-bottom-bar
+开发、测试、发布流程见 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md);踩坑记录见 [`docs/lessons.md`](docs/lessons.md)。
 
 ## 官方文档参考
 
