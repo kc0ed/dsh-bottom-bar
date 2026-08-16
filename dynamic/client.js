@@ -1072,6 +1072,20 @@ body[data-ds-dark-theme] .dsh-price-input {
   padding: 10px 4px;
   font-size: 12px;
   color: var(--dsw-alias-label-tertiary);
+}
+.dsh-free-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 4px 0 2px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
 }`)
         const usageOutputTokens = (usage) => {
           if (typeof usage !== 'object' || usage === null) return null
@@ -1619,6 +1633,12 @@ body[data-ds-dark-theme] .dsh-price-input {
                     ))
                   }
                   if (!any) nodes.push(React.createElement('div', { className: 'dsh-detail-empty', key: 'e' + p.model }, '（无用量）'))
+                  if (p.free === true && p.refCost !== null && p.refCost !== undefined && p.refCost > 0) {
+                    nodes.push(React.createElement('div', { className: 'dsh-free-badge', key: 'f' + p.model },
+                      React.createElement('span', null, '🎉 免费渠道'),
+                      React.createElement('span', null, '按官方价本应 ' + compactMoney(p.refCost, p.refCurrency, 'full') + ' · 已省 ' + compactMoney(p.refCost, p.refCurrency, 'full')),
+                    ))
+                  }
                   nodes.push(React.createElement('div', { className: 'dsh-detail-row dsh-detail-total', key: 's' + p.model },
                     React.createElement('span', null, '小计'),
                     React.createElement('span', null, compactMoney(p.cost, p.currency, 'full')),
