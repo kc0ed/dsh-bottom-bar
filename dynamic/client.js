@@ -178,6 +178,17 @@ return {
   color: var(--dsw-alias-brand-primary) !important;
   font-weight: 700;
 }
+/* 修订 88：峰谷明细按模型分组——模型名小标题 */
+.dsh-peak-model {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-secondary);
+  margin-top: 6px;
+}
+.dsh-peak-model + .dsh-peak-table {
+  margin-top: 2px;
+}
 
 .dsh-tip {
   position: fixed;
@@ -1397,20 +1408,31 @@ body[data-ds-dark-theme] .dsh-price-input {
                 React.createElement('span', null, '实际计费'),
                 React.createElement('span', null, p.priced ? '按当前时段价' : '本渠道不计峰谷 · 按基价(空闲价)'),
               ))
-              nodes.push(React.createElement('div', { className: 'dsh-peak-table', key: 'tbl' },
+              // 修订 88：官方峰谷价按模型分组展示（flash / pro 各有三桶两列）
+              const modelLabel = (m) => ({ 'deepseek-v4-flash': 'DeepSeek V4 Flash', 'deepseek-v4-pro': 'DeepSeek V4 Pro' }[m] || m)
+              const modelList = Array.isArray(p.models) && p.models.length > 0 ? p.models : null
+              const tableFor = (mm, tblKey) => React.createElement('div', { className: 'dsh-peak-table', key: tblKey },
                 cell('单价(1M)', true, false),
                 cell('高峰', true, hot === 'peak'),
                 cell('空闲', true, hot === 'base'),
                 cell('输入', false, false),
-                cell(money(p.peakIn), false, hot === 'peak'),
-                cell(money(p.baseIn), false, hot === 'base'),
+                cell(money(mm.peakIn), false, hot === 'peak'),
+                cell(money(mm.baseIn), false, hot === 'base'),
                 cell('缓存读', false, false),
-                cell(money(p.peakRead), false, hot === 'peak'),
-                cell(money(p.baseRead), false, hot === 'base'),
+                cell(money(mm.peakRead), false, hot === 'peak'),
+                cell(money(mm.baseRead), false, hot === 'base'),
                 cell('输出', false, false),
-                cell(money(p.peakOut), false, hot === 'peak'),
-                cell(money(p.baseOut), false, hot === 'base'),
-              ))
+                cell(money(mm.peakOut), false, hot === 'peak'),
+                cell(money(mm.baseOut), false, hot === 'base'),
+              )
+              if (modelList !== null) {
+                for (const mm of modelList) {
+                  nodes.push(React.createElement('div', { className: 'dsh-peak-model', key: 'mh' + mm.model }, modelLabel(mm.model)))
+                  nodes.push(tableFor(mm, 't' + mm.model))
+                }
+              } else {
+                nodes.push(tableFor(p, 'tbl'))
+              }
               nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'win' },
                 React.createElement('span', null, '高峰时段'),
                 React.createElement('span', null, '9:00-12:00 / 14:00-18:00'),
