@@ -1045,7 +1045,7 @@ body[data-ds-dark-theme] .dsh-price-input {
           counts: '12 轮 · 45 步', llm: 'LLM 2m10s', toolCall: '工具调用时长 45s', ttft: '首 token 平均 1.8s', throughput: '34.2 tok/s',
           cacheHit: { separate: '缓存命中 5.93M tok', combined: '缓存命中 97%' },
           tokens: { separate: '输入 96.3K tok · 输出 72.8K tok', combined: '输入 6.0M tok · 输出 72.8K tok' },
-          cost: '预估 ¥0.36', peak: '⏱ 高峰 ¥3.0/1M',
+          cost: '预估 ¥0.36', peak: '⏱ 高峰 输入 ¥3.0/1M',
         }
         const DEFAULT_COMPOSITION = SEGMENT_IDS.map((id) => ({ id, enabled: true }))
         let compositionValue = null
@@ -1201,12 +1201,14 @@ body[data-ds-dark-theme] .dsh-price-input {
                 if (estimate === null) return usageActive ? '计算中…' : null
                 return costGroup(estimate, precision, null)
               },
-              // 修订 78/79：峰谷提醒分段——提醒开关开启即显示（与是否计价无关）
+              // 修订 78/79/85：峰谷提醒分段——标注价格类型(输入)与参考/实际身份
               peak: () => {
                 if (estimate === null || estimate.peak === undefined || !estimate.peak.enabled) return null
                 const inPrice = estimate.peak.window === 'peak' ? estimate.peak.peakIn : estimate.peak.baseIn
                 const priceText = inPrice !== null && inPrice !== undefined ? compactMoney(inPrice, 'CNY', 'compact') + '/1M' : ''
-                return (estimate.peak.window === 'peak' ? '⏱ 高峰 ' : '⏱ 空闲 ') + priceText
+                const when = estimate.peak.window === 'peak' ? '⏱ 高峰' : '⏱ 空闲'
+                const ref = estimate.peak.priced ? '' : ' 参考'
+                return when + ref + ' 输入 ' + priceText
               },
             }
             // ⚠️ 修订 25：三函数必须在 children 构造之前定义（const TDZ）
@@ -1390,8 +1392,12 @@ body[data-ds-dark-theme] .dsh-price-input {
                 React.createElement('span', null, '当前时段'),
                 React.createElement('span', null, p.window === 'peak' ? '高峰' : '空闲'),
               ))
+              nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'bill' },
+                React.createElement('span', null, '实际计费'),
+                React.createElement('span', null, p.priced ? '按当前时段价' : '本渠道不计峰谷 · 按基价(空闲价)'),
+              ))
               nodes.push(React.createElement('div', { className: 'dsh-peak-table', key: 'tbl' },
-                cell('价格(1M)', true, false),
+                cell('单价(1M)', true, false),
                 cell('高峰', true, hot === 'peak'),
                 cell('空闲', true, hot === 'base'),
                 cell('输入', false, false),
