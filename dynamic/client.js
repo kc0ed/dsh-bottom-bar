@@ -1277,16 +1277,24 @@ body[data-ds-dark-theme] .dsh-price-input {
             if (node.kind !== 'assistant') continue
             const r = assistantStepReading(node)
             if (r.decodeMs === null || r.decodeMs <= 0 || r.outputTokens === null) continue
-            all.push(r)
+            const u = node.usage
+            all.push(Object.assign({}, r, {
+              inTokens: (u !== undefined && u !== null) ? ((u.uncachedInputTokens !== undefined ? u.uncachedInputTokens : 0) + (u.cacheReadTokens !== undefined ? u.cacheReadTokens : 0) + (u.cacheWriteTokens !== undefined ? u.cacheWriteTokens : 0)) : 0,
+              readTokens: (u !== undefined && u !== null && u.cacheReadTokens !== undefined) ? u.cacheReadTokens : 0,
+              writeTokens: (u !== undefined && u !== null && u.cacheWriteTokens !== undefined) ? u.cacheWriteTokens : 0,
+            }))
           }
           const sel = lastN > 0 && all.length > lastN ? all.slice(all.length - lastN) : all
-          let decodeMs = 0, outputTokens = 0, ttftMs = 0, ttftN = 0
+          let decodeMs = 0, outputTokens = 0, inTokens = 0, readTokens = 0, writeTokens = 0, ttftMs = 0, ttftN = 0
           for (const r of sel) {
             decodeMs += r.decodeMs
             outputTokens += r.outputTokens
+            inTokens += r.inTokens
+            readTokens += r.readTokens
+            writeTokens += r.writeTokens
             if (r.ttftMs !== null) { ttftMs += r.ttftMs; ttftN += 1 }
           }
-          return { count: sel.length, decodeMs, outputTokens, ttftMs: ttftN > 0 ? ttftMs / ttftN : null }
+          return { count: sel.length, decodeMs, outputTokens, inTokens, readTokens, writeTokens, ttftMs: ttftN > 0 ? ttftMs / ttftN : null }
         }
         const formatTokens = (n) => {
           const scaled = (v) => v >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10)
@@ -1727,20 +1735,20 @@ body[data-ds-dark-theme] .dsh-price-input {
               if (panelPlacement === 'top' && !fitsAbove && fitsBelow) setPanelPlacement('bottom')
             }, [panelPlacement, panelPos, detailSeg])
             const segDetailRows = (segId) => {
+              // 修订 128/129：最近 100 次请求统计(host 增量优先,回退客户端扫描),
+              // 吞吐与 tokens 明细共用
+              let r100 = { count: 0, decodeMs: 0, outputTokens: 0, inTokens: 0, readTokens: 0, writeTokens: 0, ttftMs: null }
+              if (estimate !== null && estimate !== undefined && estimate.recent !== null && estimate.recent !== undefined && estimate.recent.count > 0) {
+                r100 = { count: estimate.recent.count, decodeMs: estimate.recent.decodeMs, outputTokens: estimate.recent.outputTokens, inTokens: estimate.recent.inTokens !== undefined ? estimate.recent.inTokens : 0, readTokens: estimate.recent.readTokens !== undefined ? estimate.recent.readTokens : 0, writeTokens: estimate.recent.writeTokens !== undefined ? estimate.recent.writeTokens : 0, ttftMs: estimate.recent.ttftMs }
+              } else {
+                r100 = requestStatsOf(settledNodes, 100)
+              }
               switch (segId) {
                 case 'counts': return [['轮数', String(stats.turns)], ['步数', String(stats.steps)]]
                 case 'llm': return [['LLM 总时长', formatDuration(stats.llmMs)], ['步数', String(stats.steps)], ['平均每步', stats.steps > 0 ? formatDuration(stats.llmMs / stats.steps) : '—']]
                 case 'toolCall': return [['工具调用总时长', formatDuration(stats.toolMs)]]
                 case 'ttft': return [['首 token 总耗时', formatDuration(stats.ttftMs)], ['步数', String(stats.ttftSteps)], ['平均', stats.ttftSteps > 0 ? formatDuration(stats.ttftMs / stats.ttftSteps) : '—']]
                 case 'throughput': {
-                  // 修订 128：优先用 host 增量统计(环形100+和值,零全量重扫),
-                  // 无数据时回退客户端扫描
-                  let r100 = null
-                  if (estimate !== null && estimate !== undefined && estimate.recent !== null && estimate.recent !== undefined && estimate.recent.count > 0) {
-                    r100 = { count: estimate.recent.count, decodeMs: estimate.recent.decodeMs, outputTokens: estimate.recent.outputTokens, ttftMs: estimate.recent.ttftMs }
-                  } else {
-                    r100 = requestStatsOf(settledNodes, 100)
-                  }
                   // 修订 126：统计窗口滑槽——「全部 / 最近 100」切换,数据跟随
                   const isRecent = tputWin === 1
                   const win = isRecent
@@ -1762,9 +1770,28 @@ body[data-ds-dark-theme] .dsh-price-input {
                 case 'cacheHit': return usageActive
                   ? [['缓存命中', formatTokens(usage.cacheReadTokens || 0) + ' tok'], ['输入总量', formatTokens(billedInputTokens(usage)) + ' tok'], ['命中率', cacheHitPct === null ? '—' : cacheHitPct + '%']]
                   : null
-                case 'tokens': return usageActive
-                  ? [['未缓存输入', formatTokens(usage.uncachedInputTokens || 0) + ' tok'], ['缓存读', formatTokens(usage.cacheReadTokens || 0) + ' tok'], ['缓存写', formatTokens(usage.cacheWriteTokens || 0) + ' tok'], ['输出', formatTokens(usage.outputTokens || 0) + ' tok']]
-                  : null
+                case 'tokens': {
+                  // 修订 129：token 明细联动统计窗口滑槽——「全部 / 最近 100」
+                  const rows = [{
+                    slider: true,
+                    models: ['全部', '最近 100'],
+                    curIdx: tputWin,
+                    onPick: setTputWin,
+                  }]
+                  if (tputWin === 1) {
+                    rows.push(['未缓存输入', formatTokens(r100.inTokens) + ' tok'])
+                    rows.push(['缓存读', formatTokens(r100.readTokens) + ' tok'])
+                    rows.push(['缓存写', formatTokens(r100.writeTokens) + ' tok'])
+                    rows.push(['输出', formatTokens(r100.outputTokens) + ' tok'])
+                    rows.push(['请求数', String(r100.count)])
+                  } else if (usageActive) {
+                    rows.push(['未缓存输入', formatTokens(usage.uncachedInputTokens || 0) + ' tok'])
+                    rows.push(['缓存读', formatTokens(usage.cacheReadTokens || 0) + ' tok'])
+                    rows.push(['缓存写', formatTokens(usage.cacheWriteTokens || 0) + ' tok'])
+                    rows.push(['输出', formatTokens(usage.outputTokens || 0) + ' tok'])
+                  }
+                  return rows
+                }
                 default: return null
               }
             }
