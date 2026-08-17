@@ -2366,11 +2366,12 @@ body[data-ds-dark-theme] .dsh-price-input {
               const pad = 24
               const w = 720
               const bodyW = w - pad * 2
-              const rows = all.rows.slice(0, 30)
+              const rows = all.rows.slice(0, 20)
               const cardH = 84
               const gap = 14
+              const rowH = 40
               const listTop = pad + 46 + cardH + gap + 34
-              const h = listTop + rows.length * 26 + 44 + 26
+              const h = listTop + rows.length * rowH + 44 + 26
               const cv = document.createElement('canvas')
               cv.width = w
               cv.height = h
@@ -2414,7 +2415,7 @@ body[data-ds-dark-theme] .dsh-price-input {
               ctx.moveTo(pad, listTop - 4)
               ctx.lineTo(w - pad, listTop - 4)
               ctx.stroke()
-              // 明细行:来源色点 + 名称 / token / 费用
+              // 明细行:来源色点 + 名称 / token / 费用 + 次行各桶消耗小字(修订 115)
               let y = listTop + 6
               for (const r of rows) {
                 const dot = r.free ? green : (r.source === 'channel' ? brand : (r.source === 'global' ? blue : textSub))
@@ -2424,7 +2425,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                 ctx.fill()
                 ctx.fillStyle = r.free ? green : textMain
                 ctx.font = r.free ? '600 13px sans-serif' : '500 13px sans-serif'
-                const name = r.key.length > 34 ? r.key.slice(0, 33) + '…' : r.key
+                const name = r.key.length > 30 ? r.key.slice(0, 29) + '…' : r.key
                 ctx.fillText(name, pad + 16, y)
                 const costText = r.free ? ('免费省 ' + (r.refCost !== null && r.refCost !== undefined ? compactMoney(r.refCost, r.refCurrency, 'compact') : '')) : compactMoney(r.cost, r.currency, 'compact')
                 ctx.textAlign = 'right'
@@ -2433,9 +2434,18 @@ body[data-ds-dark-theme] .dsh-price-input {
                 ctx.fillText(costText, w - pad, y)
                 ctx.fillStyle = textSub
                 ctx.font = 'normal 11px sans-serif'
-                ctx.fillText(formatTokens(r.tokens) + ' tok', w - pad - 110, y)
+                ctx.fillText(formatTokens(r.tokens) + ' tok', w - pad - 108, y)
                 ctx.textAlign = 'left'
-                y += 26
+                // 次行:各桶消耗明细(仅非零桶)
+                const buckets = []
+                if (r.uncachedInput > 0) buckets.push('输入 ' + formatTokens(r.uncachedInput))
+                if (r.cacheRead > 0) buckets.push('缓存读 ' + formatTokens(r.cacheRead))
+                if (r.cacheWrite > 0) buckets.push('缓存写 ' + formatTokens(r.cacheWrite))
+                if (r.output > 0) buckets.push('输出 ' + formatTokens(r.output))
+                ctx.fillStyle = textSub
+                ctx.font = 'normal 11px sans-serif'
+                ctx.fillText(buckets.length > 0 ? buckets.join(' · ') : '', pad + 16, y + 15)
+                y += rowH
               }
               // 免费横幅
               if (all.freeCount > 0) {

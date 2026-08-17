@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>dsh-bottom-bar · 导出图片预览(修订 115)</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; background: #e9e9e7; margin: 0; padding: 32px 24px; display: flex; flex-direction: column; gap: 28px; align-items: center; }
+  h1 { font-size: 18px; color: #333; margin: 0; }
+  .note { font-size: 12px; color: #888; }
+  .card { width: 720px; border-radius: 18px; padding: 24px; box-sizing: border-box; }
+  .card.light { background: #fbfbf9; color: #22221f; box-shadow: 0 8px 30px rgba(0,0,0,.08); }
+  .card.dark { background: #161618; color: #eaeae8; box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+  .head { display: flex; justify-content: space-between; align-items: baseline; }
+  .head h2 { margin: 0; font-size: 22px; font-weight: 700; color: #c15f3c; }
+  .dark .head h2 { color: #f2b18c; }
+  .head .date { font-size: 11px; color: #999; }
+  .blocks { display: flex; gap: 14px; margin-top: 18px; }
+  .block { flex: 1; border-radius: 14px; padding: 12px 14px; }
+  .block .lb { font-size: 11px; font-weight: 500; color: #9a9a97; }
+  .block .vl { font-size: 17px; font-weight: 700; margin-top: 6px; }
+  .b1 { background: rgba(193,95,60,.14); } .b1 .vl { color: #c15f3c; }
+  .b2 { background: rgba(74,144,217,.14); } .b2 .vl { color: #4a90d9; }
+  .b3 { background: rgba(16,185,129,.14); } .b3 .vl { color: #10b981; }
+  .dark .b1 { background: rgba(242,177,140,.14); } .dark .b1 .vl { color: #f2b18c; }
+  .list-title { font-size: 13px; font-weight: 600; margin-top: 22px; }
+  .sep { border-top: 1px solid #e4e4e2; margin: 8px 0 4px; }
+  .dark .sep { border-color: #343437; }
+  .row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
+  .row .name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .row .right { display: flex; gap: 12px; align-items: baseline; }
+  .row .tok { font-size: 11px; color: #9c9c9a; }
+  .row .cost { font-size: 12px; }
+  .row.free .name, .row.free .cost { color: #10b981; font-weight: 600; }
+  .sub { font-size: 11px; color: #9c9c9a; margin: -2px 0 6px 16px; }
+  .freebanner { margin-top: 14px; background: rgba(16,185,129,.14); border-radius: 12px; padding: 9px 14px; color: #10b981; font-size: 12px; font-weight: 600; }
+  .foot { margin-top: 18px; font-size: 10px; color: #9c9c9a; }
+  .toggle { display: flex; gap: 8px; }
+  .toggle button { border: 1px solid #ccc; background: #fff; border-radius: 8px; padding: 5px 14px; font-size: 12px; cursor: pointer; }
+  .toggle button.on { background: #c15f3c; border-color: #c15f3c; color: #fff; }
+</style>
+</head>
+<body>
+<h1>dsh-bottom-bar · 导出图片 B 彩版(修订 114/115)预览</h1>
+<div class="note">这是 canvas 导出图的 HTML 复刻(深浅两版)。真实导出尺寸 720px 宽。</div>
+<div class="toggle" id="tg">
+  <button data-m="light" class="on">浅色</button>
+  <button data-m="dark">深色</button>
+</div>
+
+<div id="sheet"></div>
+
+<script>
+const data = {
+  at: '2026/8/17 09:42:13',
+  totalTokens: 605837000,
+  totals: { CNY: 8.4375, USD: 0.0 },
+  hitRate: 99,
+  freeCount: 1,
+  savedTotals: { USD: 1.234 },
+  rows: [
+    { key: 'opencode/deepseek-v4-flash-free', tokens: 2721000000*0.002, uncachedInput: 2872730, cacheRead: 24137088, cacheWrite: 0, output: 98328, cost: 0, free: true, refCost: 1.234, refCurrency: 'USD', source: 'official' },
+    { key: 'opencode-go/deepseek-v4-flash', tokens: 2042217+2919247+555917184, uncachedInput: 2042217, cacheRead: 555917184, cacheWrite: 0, output: 2919247, cost: 8.4375, free: false, source: 'channel' },
+    { key: 'deepseek-v4-pro', tokens: 1200000, uncachedInput: 400000, cacheRead: 600000, cacheWrite: 0, output: 200000, cost: 0.66, free: false, source: 'global' },
+    { key: 'unknown-vendor-model', tokens: 300000, uncachedInput: 100000, cacheRead: 150000, cacheWrite: 0, output: 50000, cost: 2.5, free: false, source: 'official' },
+  ],
+}
+const fmt = (n) => {
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B'
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K'
+  return String(n)
+}
+const money = (v, c) => (c === 'CNY' ? '¥' : '$') + (Math.round(v * 100) / 100).toFixed(2)
+
+function render(mode) {
+  const dark = mode === 'dark'
+  const sheet = document.getElementById('sheet')
+  const card = document.createElement('div')
+  card.className = 'card ' + mode
+  const totalText = Object.keys(data.totals).map((k) => money(data.totals[k], k)).join(' + ')
+  card.innerHTML = `
+    <div class="head">
+      <h2>DSH 费用统计</h2>
+      <span class="date">${data.at}</span>
+    </div>
+    <div class="blocks">
+      <div class="block b1"><div class="lb">总 Tokens</div><div class="vl">${fmt(data.totalTokens)}</div></div>
+      <div class="block b2"><div class="lb">预估费用</div><div class="vl">${totalText.length > 16 ? totalText.slice(0,15) + '…' : totalText}</div></div>
+      <div class="block b3"><div class="lb">缓存命中率</div><div class="vl">${data.hitRate}%</div></div>
+    </div>
+    <div class="list-title">分渠道明细</div>
+    <div class="sep"></div>
+    ${data.rows.map((r) => {
+      const dotColor = r.free ? '#10b981' : (r.source === 'channel' ? (dark ? '#f2b18c' : '#c15f3c') : (r.source === 'global' ? '#4a90d9' : '#9c9c9a'))
+      const costText = r.free ? '免费省 ' + money(r.refCost, r.refCurrency) : money(r.cost, r.currency || 'CNY')
+      const buckets = []
+      if (r.uncachedInput > 0) buckets.push('输入 ' + fmt(r.uncachedInput))
+      if (r.cacheRead > 0) buckets.push('缓存读 ' + fmt(r.cacheRead))
+      if (r.cacheWrite > 0) buckets.push('缓存写 ' + fmt(r.cacheWrite))
+      if (r.output > 0) buckets.push('输出 ' + fmt(r.output))
+      return `
+        <div class="row ${r.free ? 'free' : ''}">
+          <span class="name"><span class="dot" style="background:${dotColor}"></span>${r.key}</span>
+          <span class="right"><span class="tok">${fmt(r.tokens)} tok</span><span class="cost">${costText}</span></span>
+        </div>
+        <div class="sub">${buckets.join(' · ')}</div>`
+    }).join('')}
+    <div class="freebanner">🎉 其中 ${data.freeCount} 个免费渠道 · 按官方价已省 ${Object.keys(data.savedTotals).map((k) => money(data.savedTotals[k], k)).join(' ')}</div>
+    <div class="foot">由 dsh-bottom-bar 生成 · 估算仅供参考,实际以账单为准</div>
+  `
+  sheet.innerHTML = ''
+  sheet.appendChild(card)
+}
+document.getElementById('tg').addEventListener('click', (e) => {
+  const b = e.target.closest('button')
+  if (!b) return
+  document.querySelectorAll('#tg button').forEach((x) => x.classList.remove('on'))
+  b.classList.add('on')
+  render(b.dataset.m)
+})
+render('light')
+</script>
+</body>
+</html>
