@@ -1626,10 +1626,14 @@ body[data-ds-dark-theme] .dsh-price-input {
                 if (sel !== null && sel.toString().length > 0) return
               }
               cancelSegClick()
+              // 修订 134：点击时立即取消悬停黑条定时器(否则 260ms 后黑条与弹层
+              // 打架,造成「点开响应变慢/乱」的感觉),确认延迟 160→100ms
+              if (timerRef.current !== null) { timerRef.current(); timerRef.current = null }
+              setPos(null)
               segClickTimerRef.current = ctx.timeout(() => {
                 segClickTimerRef.current = null
                 toggleDetail(segId, el)
-              }, 160)
+              }, 100)
             }
             const toggleDetail = (segId, el) => {
               if (timerRef.current !== null) { timerRef.current(); timerRef.current = null }
@@ -2988,14 +2992,14 @@ body[data-ds-dark-theme] .dsh-price-input {
                   const sym = preview.currency === 'USD' ? '$' : '¥'
                   return React.createElement('div', { className: 'dsh-price-template-card' },
                     React.createElement('div', { className: 'dsh-price-add' },
-                      React.createElement('input', { type: 'text', style: { flex: 1.5 }, placeholder: '模型 id，如 opencode/deepseek-v4-flash', value: newModel, onChange: (e) => setNewModel(e.target.value) }),
-                      React.createElement('input', { type: 'number', step: '0.01', style: { flex: 1 }, placeholder: '空闲输入价 (' + preview.currency + ')', value: newIn, onChange: (e) => setNewIn(e.target.value) }),
+                      React.createElement('input', { className: 'dsh-comp-input', type: 'text', style: { flex: 1.5 }, placeholder: '模型 id，如 opencode/deepseek-v4-flash', value: newModel, onChange: (e) => setNewModel(e.target.value) }),
+                      React.createElement('input', { className: 'dsh-comp-input', type: 'number', step: '0.01', style: { flex: 1 }, placeholder: '空闲输入价 (' + preview.currency + ')', value: newIn, onChange: (e) => setNewIn(e.target.value) }),
                       React.createElement('button', { className: 'dsh-comp-btn', onClick: addPrice }, '添加/更新价格'),
                       React.createElement('button', { className: 'dsh-comp-btn', onClick: resetPrices }, '恢复默认价格'),
                     ),
                     // 修订 119：高峰输入价(可选)——填了即为该价定义峰谷双价
                     React.createElement('div', { className: 'dsh-price-add', style: { borderTop: 'none', marginTop: 0, paddingTop: 0 } },
-                      React.createElement('input', { type: 'number', step: '0.01', style: { flex: 1.5 }, placeholder: '高峰输入价（可选，留空=仅单一价）', value: newInPeak, onChange: (e) => setNewInPeak(e.target.value) }),
+                      React.createElement('input', { className: 'dsh-comp-input', type: 'number', step: '0.01', style: { flex: 1.5 }, placeholder: '高峰输入价（可选，留空=仅单一价）', value: newInPeak, onChange: (e) => setNewInPeak(e.target.value) }),
                       React.createElement('span', { style: { flex: 1, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, '其余桶按厂商比例自动派生高峰价'),
                     ),
                     React.createElement('div', { className: 'dsh-price-preview-badge' },
