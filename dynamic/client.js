@@ -1323,15 +1323,29 @@ body[data-ds-dark-theme] .dsh-price-input {
         const PeakModelSlider = (props) => {
           const segRefs = React.useRef([])
           const thumbRef = React.useRef(null)
+          const rootRef = React.useRef(null)
           const { models, curIdx, onPick, label } = props
-          React.useLayoutEffect(() => {
+          const measure = React.useCallback(() => {
             const thumb = thumbRef.current
             const seg = segRefs.current[curIdx]
             if (thumb === null || seg === null || seg === undefined) return
             thumb.style.left = seg.offsetLeft + 'px'
             thumb.style.width = seg.offsetWidth + 'px'
-          }, [curIdx, models])
-          return React.createElement('div', { className: 'dsh-peak-slider' },
+          }, [curIdx])
+          React.useLayoutEffect(() => {
+            measure()
+          }, [measure, models])
+          // 修订 113：币种切换/弹层宽度变化时滑槽 seg 位置会变,
+          // ResizeObserver 监听容器,宽度一变立即重量 thumb,消除滞后
+          React.useEffect(() => {
+            if (typeof ResizeObserver === 'undefined') return
+            const root = rootRef.current
+            if (root === null) return
+            const ro = new ResizeObserver(() => { measure() })
+            ro.observe(root)
+            return () => ro.disconnect()
+          }, [measure])
+          return React.createElement('div', { className: 'dsh-peak-slider', ref: rootRef },
             React.createElement('span', { className: 'dsh-peak-slider-thumb', ref: thumbRef }),
             models.map((m, i) => React.createElement('button', {
               key: m.model,
