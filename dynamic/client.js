@@ -1093,6 +1093,38 @@ body[data-ds-dark-theme] .dsh-price-input {
   padding-top: 8px;
   border-top: 1px dashed var(--dsw-alias-border-l1);
 }
+.dsh-price-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+/* 修订 139：待确认流光——主题色沿卡片边缘流动(贪吃蛇);@property 不支持时退化为静态主题色边框 */
+@property --dsh-ang {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+.dsh-confirm-pending {
+  position: relative;
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 60%, transparent) !important;
+}
+.dsh-confirm-pending::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--dsh-ang, 0deg), transparent 0%, var(--dsw-alias-brand-primary) 14%, transparent 30%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: dsh-border-flow 1.8s linear infinite;
+  pointer-events: none;
+}
+@keyframes dsh-border-flow {
+  to { --dsh-ang: 360deg; }
+}
 .dsh-price-toggle {
   display: flex;
   align-items: center;
@@ -2044,6 +2076,9 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [peakProvidersText, setPeakProvidersText] = React.useState(initPageCfg && Array.isArray(initPageCfg.peakProviders) ? initPageCfg.peakProviders.join(', ') : 'deepseek, opencode, opencode-go')
             const [prices, setPrices] = React.useState(null)
             const [pricesOpen, setPricesOpen] = React.useState(false)
+            // 修订 139：价格区三 tab(价格表/新增价格/厂商)——替代弹出/折叠
+            const [priceTab, setPriceTab] = React.useState('table')
+            const [addPending, setAddPending] = React.useState(false)
             const [builtinOpen, setBuiltinOpen] = React.useState(false)
             const [growPeak, setGrowPeak] = React.useState(new Set())
             const toggleGrowPeak = (model) => { setGrowPeak((s) => { const n = new Set(s); if (n.has(model)) n.delete(model); else n.add(model); return n }) }
@@ -2972,8 +3007,13 @@ body[data-ds-dark-theme] .dsh-price-input {
               ),
               React.createElement('p', { className: 'dsh-comp-desc' }, 'DeepSeek 自 2026-08-17 00:00 起实行峰谷定价：高峰时段 9:00-12:00 / 14:00-18:00（按所选时区，默认跟随系统），空闲时段为高峰一半。opencode 官方同样实施该峰谷时段（UTC 01:00-04:00 / 06:00-10:00）。「计价」按高峰价算钱，仅对上方「适用渠道」生效（默认官方 deepseek + opencode 系）；「提醒」只显示 ⏱ 高峰/空闲 与时段标注，不影响价格。'),
               React.createElement('button', { className: 'dsh-comp-btn dsh-comp-reset', onClick: reset, disabled: offline }, '恢复默认（段/模式/黑条/精度）'),
-              React.createElement('button', { className: 'dsh-comp-btn dsh-comp-reset', onClick: () => setPricesOpen(!pricesOpen) }, pricesOpen ? '▲ 收起价格表' : '▼ 展开价格表'),
-              pricesOpen && React.createElement('div', { className: 'dsh-prices' },
+              // 修订 139：价格区三 tab——不再弹出/折叠,切换只变内容区
+              React.createElement('div', { className: 'dsh-cur-toggle', key: 'ptab', style: { marginTop: 10 } },
+                React.createElement('button', { className: 'dsh-cur-btn' + (priceTab === 'table' ? ' dsh-on' : ''), onClick: () => { setPriceTab('table'); setAddPending(false) } }, '价格表'),
+                React.createElement('button', { className: 'dsh-cur-btn' + (priceTab === 'add' ? ' dsh-on' : ''), onClick: () => { setPriceTab('add'); setAddPending(false) } }, '新增价格'),
+                React.createElement('button', { className: 'dsh-cur-btn' + (priceTab === 'vendor' ? ' dsh-on' : ''), onClick: () => { setPriceTab('vendor'); setAddPending(false) } }, '厂商'),
+              ),
+              priceTab === 'table' && React.createElement('div', { className: 'dsh-prices' },
                 React.createElement('span', { className: 'dsh-price-label' }, '价格表（每 1M tokens）：这里只列出你配置过的价格；内置默认价格默认收起，需要时展开。没单独配置的渠道/模型会自动按内置价估算。'),
                 React.createElement('div', { className: 'dsh-price-head' },
                   React.createElement('span', { className: 'dsh-price-model' }, '模型'),
@@ -3000,47 +3040,72 @@ body[data-ds-dark-theme] .dsh-price-input {
                   React.createElement('span', null, builtinPriceRows.length + ' 个' + (builtinOpen ? ' ▾' : ' ▸')),
                 ),
                 builtinOpen && builtinPriceRows,
-                (() => {
-                  const preview = computePreviewPrice()
-                  const sym = preview.currency === 'USD' ? '$' : '¥'
-                  return React.createElement('div', { className: 'dsh-price-template-card' },
-                    // 修订 137：重排——输入一行、高峰一行、按钮独立一行,不再全挤一行
-                    React.createElement('div', { className: 'dsh-price-add' },
-                      React.createElement('input', { className: 'dsh-comp-input', type: 'text', style: { flex: 2 }, placeholder: '模型 id，如 opencode/deepseek-v4-flash', value: newModel, onChange: (e) => setNewModel(e.target.value) }),
-                      React.createElement('input', { className: 'dsh-comp-input', type: 'number', step: '0.01', style: { flex: 1 }, placeholder: '空闲输入价 (' + preview.currency + ')', value: newIn, onChange: (e) => setNewIn(e.target.value) }),
-                    ),
-                    React.createElement('div', { className: 'dsh-price-add', style: { borderTop: 'none', marginTop: 0, paddingTop: 0 } },
-                      React.createElement('input', { className: 'dsh-comp-input', type: 'number', step: '0.01', style: { flex: 2 }, placeholder: '高峰输入价（可选，留空=仅单一价）', value: newInPeak, onChange: (e) => setNewInPeak(e.target.value) }),
-                      React.createElement('span', { style: { flex: 1, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, '其余桶按厂商比例自动派生高峰价'),
-                    ),
-                    React.createElement('div', { className: 'dsh-price-actions' },
-                      React.createElement('button', { className: 'dsh-comp-btn', onClick: addPrice }, '添加/更新价格'),
-                      React.createElement('button', { className: 'dsh-comp-btn', onClick: resetPrices }, '恢复默认价格'),
-                    ),
-                    React.createElement('div', { className: 'dsh-price-preview-badge', style: { flexWrap: 'wrap', gap: '8px 14px' } },
-                      React.createElement('span', null, '💡 ' + (vendorTpl === 'auto' ? '自动识别: ' : '已选: ') + preview.tplName),
-                      React.createElement('span', null, '币种: ' + preview.currency),
-                      React.createElement('span', null, '输出: ' + sym + preview.out),
-                      React.createElement('span', null, '读缓存: ' + sym + (preview.cacheRead !== undefined ? preview.cacheRead : '—')),
-                      React.createElement('span', null, '写缓存: ' + sym + (preview.cacheWrite !== undefined ? preview.cacheWrite : '—')),
-                      React.createElement('button', { className: 'dsh-tpl-gear', onClick: () => setTplOpen(!tplOpen) }, '⚙ 厂商比例' + (tplOpen ? ' ▾' : ' ▸')),
-                    ),
-                    tplOpen && React.createElement('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 } },
-                      React.createElement('select', {
-                        className: 'dsh-comp-select',
-                        style: { flex: 1 },
-                        value: vendorTpl,
-                        onChange: (e) => setVendorTpl(e.target.value),
-                      }, VENDOR_TEMPLATES.map((t) => React.createElement('option', { value: t.id, key: t.id }, t.name))),
-                    ),
-                    tplOpen && vendorTpl === 'custom' && React.createElement('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-                      React.createElement('select', { className: 'dsh-comp-select', value: customCurrency, onChange: (e) => setCustomCurrency(e.target.value) }, ['CNY', 'USD'].map((c) => React.createElement('option', { value: c, key: c }, c))),
-                      React.createElement('input', { className: 'dsh-price-input', placeholder: '缓存读单价', value: customRead, onChange: (e) => setCustomRead(e.target.value) }),
-                      React.createElement('input', { className: 'dsh-price-input', placeholder: '缓存写单价', value: customWrite, onChange: (e) => setCustomWrite(e.target.value) }),
-                      React.createElement('input', { className: 'dsh-price-input', placeholder: '输出单价', value: customOut, onChange: (e) => setCustomOut(e.target.value) }),
-                    ),
-                  )
-                })(),
+              ),
+              // 修订 139：新增价格 tab——模板卡(自动匹配厂商 + 比例预览 + 主题色流光确认)
+              priceTab === 'add' && (() => {
+                const preview = computePreviewPrice()
+                const sym = preview.currency === 'USD' ? '$' : '¥'
+                return React.createElement('div', { className: 'dsh-price-template-card' + (addPending ? ' dsh-confirm-pending' : ''), onInput: () => { if (addPending) setAddPending(false) } },
+                  React.createElement('p', { className: 'dsh-comp-desc' }, '填模型 id 与输入价 → 自动匹配厂商并按官方比例推算 → 确认后加入价格表。'),
+                  // 修订 137：重排——输入一行、高峰一行、按钮独立一行,不再全挤一行
+                  React.createElement('div', { className: 'dsh-price-add' },
+                    React.createElement('input', { className: 'dsh-comp-input', type: 'text', style: { flex: 2 }, placeholder: '模型 id，如 opencode/deepseek-v4-flash', value: newModel, onChange: (e) => setNewModel(e.target.value) }),
+                    React.createElement('input', { className: 'dsh-comp-input', type: 'number', step: '0.01', style: { flex: 1 }, placeholder: '空闲输入价 (' + preview.currency + ')', value: newIn, onChange: (e) => setNewIn(e.target.value) }),
+                  ),
+                  React.createElement('div', { className: 'dsh-price-add', style: { borderTop: 'none', marginTop: 0, paddingTop: 0 } },
+                    React.createElement('input', { className: 'dsh-comp-input', type: 'number', step: '0.01', style: { flex: 2 }, placeholder: '高峰输入价（可选，留空=仅单一价）', value: newInPeak, onChange: (e) => setNewInPeak(e.target.value) }),
+                    React.createElement('span', { style: { flex: 1, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, '其余桶按厂商比例自动派生高峰价'),
+                  ),
+                  React.createElement('div', { className: 'dsh-price-actions' },
+                    // 修订 139：确认流——第一次点进入「待确认」(边缘流光),再点提交;[取消]退出
+                    addPending
+                      ? React.createElement(React.Fragment, null,
+                          React.createElement('button', { className: 'dsh-comp-btn', style: { borderColor: 'var(--dsw-alias-brand-primary)', color: 'var(--dsw-alias-brand-primary)' }, onClick: () => { addPrice(); setAddPending(false) } }, '✓ 确认添加到价格表'),
+                          React.createElement('button', { className: 'dsh-comp-btn', onClick: () => setAddPending(false) }, '✕ 取消'),
+                        )
+                      : React.createElement(React.Fragment, null,
+                          React.createElement('button', { className: 'dsh-comp-btn', onClick: () => setAddPending(true) }, '添加/更新价格'),
+                          React.createElement('button', { className: 'dsh-comp-btn', onClick: resetPrices }, '恢复默认价格'),
+                        ),
+                  ),
+                  React.createElement('div', { className: 'dsh-price-preview-badge', style: { flexWrap: 'wrap', gap: '8px 14px' } },
+                    React.createElement('span', null, '💡 ' + (vendorTpl === 'auto' ? '自动识别: ' : '已选: ') + preview.tplName),
+                    React.createElement('span', null, '币种: ' + preview.currency),
+                    React.createElement('span', null, '输出: ' + sym + preview.out),
+                    React.createElement('span', null, '读缓存: ' + sym + (preview.cacheRead !== undefined ? preview.cacheRead : '—')),
+                    React.createElement('span', null, '写缓存: ' + sym + (preview.cacheWrite !== undefined ? preview.cacheWrite : '—')),
+                    React.createElement('button', { className: 'dsh-tpl-gear', onClick: () => setTplOpen(!tplOpen) }, '⚙ 厂商比例' + (tplOpen ? ' ▾' : ' ▸')),
+                  ),
+                  tplOpen && React.createElement('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 } },
+                    React.createElement('select', {
+                      className: 'dsh-comp-select',
+                      style: { flex: 1 },
+                      value: vendorTpl,
+                      onChange: (e) => setVendorTpl(e.target.value),
+                    }, VENDOR_TEMPLATES.map((t) => React.createElement('option', { value: t.id, key: t.id }, t.name))),
+                  ),
+                  tplOpen && vendorTpl === 'custom' && React.createElement('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                    React.createElement('select', { className: 'dsh-comp-select', value: customCurrency, onChange: (e) => setCustomCurrency(e.target.value) }, ['CNY', 'USD'].map((c) => React.createElement('option', { value: c, key: c }, c))),
+                    React.createElement('input', { className: 'dsh-price-input', placeholder: '缓存读单价', value: customRead, onChange: (e) => setCustomRead(e.target.value) }),
+                    React.createElement('input', { className: 'dsh-price-input', placeholder: '缓存写单价', value: customWrite, onChange: (e) => setCustomWrite(e.target.value) }),
+                    React.createElement('input', { className: 'dsh-price-input', placeholder: '输出单价', value: customOut, onChange: (e) => setCustomOut(e.target.value) }),
+                  ),
+                )
+              })(),
+              // 修订 139：厂商 tab——内置厂商比例一览(只读,参考用)
+              priceTab === 'vendor' && React.createElement('div', { className: 'dsh-prices' },
+                React.createElement('span', { className: 'dsh-price-label' }, '厂商比例模板（输入价 → 缓存读/缓存写/输出 自动派生）：自动识别按模型名匹配；同一厂商多套价格体系暂手动维护。'),
+                React.createElement('div', { className: 'dsh-price-head' },
+                  React.createElement('span', { className: 'dsh-price-model' }, '厂商'),
+                  React.createElement('span', { style: { width: 110 } }, '比例(输出/读/写)'),
+                  React.createElement('span', { style: { width: 66 } }, '币种'),
+                ),
+                VENDOR_TEMPLATES.filter((t) => t.id !== 'auto' && t.id !== 'custom').map((t) => React.createElement('div', { className: 'dsh-price-row', key: t.id },
+                  React.createElement('span', { className: 'dsh-price-model', title: t.id }, t.name),
+                  React.createElement('span', { style: { width: 110, fontSize: 12, color: 'var(--dsw-alias-label-secondary)', fontFamily: '"SF Mono", Consolas, monospace' } }, '1 : ' + t.out + ' : ' + (t.read !== undefined ? t.read : '—') + ' : ' + (t.write !== undefined ? t.write : '—')),
+                  React.createElement('span', { style: { width: 66, fontSize: 12, color: 'var(--dsw-alias-label-tertiary)' } }, t.currency || '—'),
+                )),
+                React.createElement('p', { className: 'dsh-comp-desc' }, '「⚖ 参考厂商」配置(中转参考别家比例)与自定义比例维护将随后续版本提供;当前可用「新增价格」里的手动填写与厂商选择。'),
               ),
               // 修订 106：综合全部会话/渠道/模型 —— fullAll 来自 host summaryAll(账本汇总)
               React.createElement('div', { className: 'dsh-fullusage', style: { display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-interactive-bg-hover)', fontSize: 12, lineHeight: '18px', color: 'var(--dsw-alias-label-secondary)', fontVariantNumeric: 'tabular-nums' } },
