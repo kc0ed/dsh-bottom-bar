@@ -1408,6 +1408,13 @@ body[data-ds-dark-theme] .dsh-price-input {
             // 修订 89：峰谷明细弹层的模型切换索引（◀ 模型名 ▶）
             const [peakModelIdx, setPeakModelIdx] = React.useState(0)
             const [peakCur, setPeakCur] = React.useState('both')
+            // 修订 124：底栏货币——点 USD/CNY 时跟随;点「两类」保持当前显示不跳动
+            const [barCur, setBarCur] = React.useState('usd')
+            const chooseCur = (v) => {
+              setPeakCur(v)
+              if (v === 'usd') setBarCur('usd')
+              else if (v === 'cny') setBarCur('cny')
+            }
             const [panelPos, setPanelPos] = React.useState(null)
             const [panelPlacement, setPanelPlacement] = React.useState('top')
             const panelRef = React.useRef(null)
@@ -1524,10 +1531,10 @@ body[data-ds-dark-theme] .dsh-price-input {
                 const models = Array.isArray(p.models) && p.models.length > 0 ? p.models : null
                 const idx = models !== null ? Math.min(peakModelIdx, models.length - 1) : 0
                 const cur = models !== null ? models[idx] : p
-                // 修订 122：底栏币种跟随详情弹层设定——peakCur=USD→$、CNY→¥、
-                // 「两类」→默认人民币;模型无 alt(CNY)时回落主币种
+                // 修订 122/124：底栏币种——栏内 barCur 决定(点 USD/CNY 跟随,
+                // 「两类」保持当前显示不跳动);模型无 alt(CNY)时回落主币种
                 const hasCny = cur.baseAltIn !== null && cur.baseAltIn !== undefined
-                const useCny = peakCur !== 'usd' && hasCny
+                const useCny = barCur === 'cny' && hasCny
                 const inPrice = p.window === 'peak'
                   ? (useCny ? cur.peakAltIn : cur.peakIn)
                   : (useCny ? cur.baseAltIn : cur.baseIn)
@@ -1759,9 +1766,9 @@ body[data-ds-dark-theme] .dsh-price-input {
               }
               // 修订 111：币种切换——USD(国际)/ CNY(中国区) / 两类,默认两类
               nodes.push(React.createElement('div', { className: 'dsh-cur-toggle', key: 'curt' },
-                React.createElement('button', { className: 'dsh-cur-btn' + (peakCur === 'usd' ? ' dsh-on' : ''), onClick: () => setPeakCur('usd') }, 'USD'),
-                React.createElement('button', { className: 'dsh-cur-btn' + (peakCur === 'cny' ? ' dsh-on' : ''), onClick: () => setPeakCur('cny') }, 'CNY'),
-                React.createElement('button', { className: 'dsh-cur-btn' + (peakCur === 'both' ? ' dsh-on' : ''), onClick: () => setPeakCur('both') }, '两类'),
+                React.createElement('button', { className: 'dsh-cur-btn' + (peakCur === 'usd' ? ' dsh-on' : ''), onClick: () => chooseCur('usd') }, 'USD'),
+                React.createElement('button', { className: 'dsh-cur-btn' + (peakCur === 'cny' ? ' dsh-on' : ''), onClick: () => chooseCur('cny') }, 'CNY'),
+                React.createElement('button', { className: 'dsh-cur-btn' + (peakCur === 'both' ? ' dsh-on' : ''), onClick: () => chooseCur('both') }, '两类'),
               ))
               nodes.push(tableFor(curModel, 'tbl'))
               // 修订 92/120：高峰时段 chips——优先用该模型自己的窗口(通用峰谷),
