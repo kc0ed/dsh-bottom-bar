@@ -1175,6 +1175,33 @@ body[data-ds-dark-theme] .dsh-price-input {
 .dsh-tpl-gear:hover {
   border-color: var(--dsw-alias-brand-primary);
   color: var(--dsw-alias-label-primary);
+}
+.dsh-cur-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 6px;
+  padding: 2px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dsw-alias-label-tertiary) 10%, transparent);
+}
+.dsh-cur-btn {
+  border: none;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.dsh-cur-btn:hover {
+  color: var(--dsw-alias-label-primary);
+}
+.dsh-cur-btn.dsh-on {
+  background: var(--dsw-alias-brand-primary);
+  color: var(--dsw-alias-bg-base);
 }`)
         const usageOutputTokens = (usage) => {
           if (typeof usage !== 'object' || usage === null) return null
@@ -1333,6 +1360,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [detailSeg, setDetailSeg] = React.useState(null)
             // 修订 89：峰谷明细弹层的模型切换索引（◀ 模型名 ▶）
             const [peakModelIdx, setPeakModelIdx] = React.useState(0)
+            const [peakCur, setPeakCur] = React.useState('both')
             const [panelPos, setPanelPos] = React.useState(null)
             const [panelPlacement, setPanelPlacement] = React.useState('top')
             const panelRef = React.useRef(null)
@@ -1632,11 +1660,11 @@ body[data-ds-dark-theme] .dsh-price-input {
               const p = estimate.peak
               const nodes = []
               const money = (v, altV) => {
-                if ((v === null || v === undefined) && (altV === null || altV === undefined)) return '—'
-                const parts = []
-                if (v !== null && v !== undefined) parts.push(compactMoney(v, 'USD', 'compact') + '/1M')
-                if (altV !== null && altV !== undefined) parts.push(compactMoney(altV, 'CNY', 'compact') + '/1M')
-                return parts.join(' / ')
+                const usd = v !== null && v !== undefined ? compactMoney(v, 'USD', 'compact') + '/1M' : null
+                const cny = altV !== null && altV !== undefined ? compactMoney(altV, 'CNY', 'compact') + '/1M' : null
+                if (peakCur === 'usd') return usd !== null ? usd : '—'
+                if (peakCur === 'cny') return cny !== null ? cny : '—'
+                return [usd, cny].filter((x) => x !== null).join(' / ') || '—'
               }
               const hot = p.window === 'peak' ? 'peak' : 'base'
               const cell = (text, head, colHot) => React.createElement('span', {
@@ -1675,6 +1703,12 @@ body[data-ds-dark-theme] .dsh-price-input {
               } else if (modelList !== null) {
                 nodes.push(React.createElement('div', { className: 'dsh-peak-model', key: 'mh' }, modelLabel(curModel.model)))
               }
+              // 修订 111：币种切换——USD(国际)/ CNY(中国区) / 两类,默认两类
+              nodes.push(React.createElement('div', { className: 'dsh-cur-toggle', key: 'curt' },
+                React.createElement('button', { className: 'dsh-cur-btn' + (peakCur === 'usd' ? ' dsh-on' : ''), onClick: () => setPeakCur('usd') }, 'USD'),
+                React.createElement('button', { className: 'dsh-cur-btn' + (peakCur === 'cny' ? ' dsh-on' : ''), onClick: () => setPeakCur('cny') }, 'CNY'),
+                React.createElement('button', { className: 'dsh-cur-btn' + (peakCur === 'both' ? ' dsh-on' : ''), onClick: () => setPeakCur('both') }, '两类'),
+              ))
               nodes.push(tableFor(curModel, 'tbl'))
               // 修订 92：高峰时段拆成窗口 chips,当前所在窗口高亮（空闲时标在空闲行）
               const rangeLabels = ['9:00-12:00', '14:00-18:00']
