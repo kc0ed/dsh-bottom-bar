@@ -1002,8 +1002,9 @@ body[data-ds-dark-theme] .dsh-multi-bar {
 .dsh-comp-input {
   box-sizing: border-box;
   font-size: 12px;
+  line-height: 18px;
   font-family: var(--dsw-font-family);
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: 8px;
   border: 1px solid var(--dsw-alias-border-l2);
   background: #FFFFFF;
@@ -1086,6 +1087,7 @@ body[data-ds-dark-theme] .dsh-price-input {
 }
 .dsh-price-add {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin-top: 10px;
   padding-top: 8px;
