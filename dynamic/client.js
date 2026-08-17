@@ -1268,6 +1268,26 @@ body[data-ds-dark-theme] .dsh-price-input {
           }
           return { turns: turns.size, steps, llmMs, toolMs, ttftMs, ttftSteps, decodeMs, decodeTokens }
         }
+        // 修订 125：最近 N 次请求的吞吐/时延统计——扫 settledNodes 的 assistant
+        // step(带解码耗时的),取最后 N 条快速算平均;「偷懒」版,零 host 改动
+        const requestStatsOf = (nodes, lastN) => {
+          const list = Array.isArray(nodes) ? nodes : []
+          const all = []
+          for (const node of list) {
+            if (node.kind !== 'assistant') continue
+            const r = assistantStepReading(node)
+            if (r.decodeMs === null || r.decodeMs <= 0 || r.outputTokens === null) continue
+            all.push(r)
+          }
+          const sel = lastN > 0 && all.length > lastN ? all.slice(all.length - lastN) : all
+          let decodeMs = 0, outputTokens = 0, ttftMs = 0, ttftN = 0
+          for (const r of sel) {
+            decodeMs += r.decodeMs
+            outputTokens += r.outputTokens
+            if (r.ttftMs !== null) { ttftMs += r.ttftMs; ttftN += 1 }
+          }
+          return { count: sel.length, decodeMs, outputTokens, ttftMs: ttftN > 0 ? ttftMs / ttftN : null }
+        }
         const formatTokens = (n) => {
           const scaled = (v) => v >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10)
           if (n < 1e3) return String(n)
@@ -1705,7 +1725,18 @@ body[data-ds-dark-theme] .dsh-price-input {
                 case 'llm': return [['LLM 总时长', formatDuration(stats.llmMs)], ['步数', String(stats.steps)], ['平均每步', stats.steps > 0 ? formatDuration(stats.llmMs / stats.steps) : '—']]
                 case 'toolCall': return [['工具调用总时长', formatDuration(stats.toolMs)]]
                 case 'ttft': return [['首 token 总耗时', formatDuration(stats.ttftMs)], ['步数', String(stats.ttftSteps)], ['平均', stats.ttftSteps > 0 ? formatDuration(stats.ttftMs / stats.ttftSteps) : '—']]
-                case 'throughput': return [['平均吞吐', formatTokensPerSecond(stats.decodeMs > 0 ? stats.decodeTokens / (stats.decodeMs / 1e3) : 0) + ' tok/s'], ['输出 token', formatTokens(stats.decodeTokens)], ['解码时长', formatDuration(stats.decodeMs)]]
+                case 'throughput': {
+                  const rows = [['平均吞吐', formatTokensPerSecond(stats.decodeMs > 0 ? stats.decodeTokens / (stats.decodeMs / 1e3) : 0) + ' tok/s'], ['输出 token', formatTokens(stats.decodeTokens)], ['解码时长', formatDuration(stats.decodeMs)]]
+                  // 修订 125：最近 100 次请求的吞吐/时延(客户端扫节点,零 host 改动)
+                  const r100 = requestStatsOf(settledNodes, 100)
+                  if (r100.count > 0) {
+                    rows.push(['最近 100 次 · 平均吞吐', formatTokensPerSecond(r100.decodeMs > 0 ? r100.outputTokens / (r100.decodeMs / 1e3) : 0) + ' tok/s'])
+                    rows.push(['最近 100 次 · 输出', formatTokens(r100.outputTokens) + ' tok'])
+                    if (r100.ttftMs !== null) rows.push(['最近 100 次 · 首 token 均', formatDuration(r100.ttftMs)])
+                    rows.push(['最近 100 次 · 请求数', String(r100.count)])
+                  }
+                  return rows
+                }
                 case 'cacheHit': return usageActive
                   ? [['缓存命中', formatTokens(usage.cacheReadTokens || 0) + ' tok'], ['输入总量', formatTokens(billedInputTokens(usage)) + ' tok'], ['命中率', cacheHitPct === null ? '—' : cacheHitPct + '%']]
                   : null
