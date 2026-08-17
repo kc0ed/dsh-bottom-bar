@@ -1400,12 +1400,17 @@ body[data-ds-dark-theme] .dsh-price-input {
           }, [measure])
           return React.createElement('div', { className: 'dsh-peak-slider', ref: rootRef },
             React.createElement('span', { className: 'dsh-peak-slider-thumb', ref: thumbRef }),
-            models.map((m, i) => React.createElement('button', {
-              key: m.model,
-              className: 'dsh-peak-slider-seg' + (i === curIdx ? ' dsh-on' : ''),
-              ref: (el) => { segRefs.current[i] = el },
-              onClick: () => onPick(i),
-            }, label(m.model))),
+            models.map((m, i) => {
+              // 修订 127：兼容字符串项(吞吐滑槽传 ['全部','最近 100']),
+              // 峰谷场景传对象(有 .model);统一取 key 与 label
+              const key = typeof m === 'string' ? m : m.model
+              return React.createElement('button', {
+                key,
+                className: 'dsh-peak-slider-seg' + (i === curIdx ? ' dsh-on' : ''),
+                ref: (el) => { segRefs.current[i] = el },
+                onClick: () => onPick(i),
+              }, typeof m === 'string' ? label(m) : label(m.model))
+            }),
           )
         }
         // ── 底栏（dock stats cell） ──
