@@ -999,6 +999,30 @@ body[data-ds-dark-theme] .dsh-multi-bar {
   border-color: var(--dsw-alias-brand-primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 18%, transparent);
 }
+/* 修订 118：峰谷适用渠道输入框——此前无任何样式(浏览器默认方框),补全套 */
+.dsh-comp-input {
+  box-sizing: border-box;
+  font-size: 12px;
+  font-family: var(--dsw-font-family);
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: #FFFFFF;
+  color: var(--dsw-alias-label-primary);
+  transition: all 0.15s ease;
+  outline: none;
+}
+body[data-ds-dark-theme] .dsh-comp-input {
+  background: #181816;
+}
+.dsh-comp-input::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+.dsh-comp-input:focus-visible,
+.dsh-comp-input:focus {
+  border-color: var(--dsw-alias-brand-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 18%, transparent);
+}
 
 .dsh-prices {
   display: flex;
