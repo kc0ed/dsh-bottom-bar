@@ -28,6 +28,7 @@
   .row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
   .row .name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
   .logo { width: 16px; height: 16px; border-radius: 4px; object-fit: contain; flex: none; }
+  .badge { width: 16px; height: 16px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; flex: none; }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
   .row .right { display: flex; gap: 12px; align-items: baseline; }
   .row .tok { font-size: 11px; color: #9c9c9a; }
@@ -92,6 +93,15 @@ const provOf = (key) => {
   return null
 }
 
+function logoFail(el) {
+  const k = el.getAttribute('data-k') || '?'
+  const letter = (k.replace(/^.*\//, '').charAt(0) || '?').toUpperCase()
+  const d = document.createElement('span')
+  d.className = 'badge'
+  d.style.background = '#9c9c9a'
+  d.textContent = letter
+  el.replaceWith(d)
+}
 function render(mode) {
   const dark = mode === 'dark'
   const sheet = document.getElementById('sheet')
@@ -114,8 +124,8 @@ function render(mode) {
       const dotColor = r.free ? '#10b981' : (r.source === 'channel' ? (dark ? '#f2b18c' : '#c15f3c') : (r.source === 'global' ? '#4a90d9' : '#9c9c9a'))
       const logo = provOf(r.key)
       const icon = logo
-        ? '<img class="logo" src="https://models.dev/logos/' + logo + '.svg" alt="" onerror="this.style.display=\'none\'">'
-        : '<span class="dot" style="background:' + dotColor + '"></span>'
+        ? '<img class="logo" src="https://models.dev/logos/' + logo + '.svg" data-k="' + r.key.replace(/"/g, '&quot;') + '" alt="" onerror="logoFail(this)">'
+        : '<span class="badge" style="background:' + dotColor + '">' + (r.key.replace(/^.*\//, '').charAt(0).toUpperCase() || '?') + '</span>'
       const costText = r.free ? '免费省 ' + money(r.refCost, r.refCurrency) : money(r.cost, r.currency || 'CNY')
       const buckets = []
       if (r.uncachedInput > 0) buckets.push('输入 ' + fmt(r.uncachedInput))

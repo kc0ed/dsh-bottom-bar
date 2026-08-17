@@ -2419,10 +2419,14 @@ body[data-ds-dark-theme] .dsh-price-input {
               let y = listTop + 6
               for (const r of rows) {
                 const dot = r.free ? green : (r.source === 'channel' ? brand : (r.source === 'global' ? blue : textSub))
-                ctx.beginPath()
-                ctx.arc(pad + 5, y - 4, 4, 0, Math.PI * 2)
-                ctx.fillStyle = dot
-                ctx.fill()
+                // 字母徽章(无 logo 的分享卡用:品牌色底 + 模型首字母)
+                const letter = (r.model || r.key).charAt(0).toUpperCase() || '?'
+                rr(pad + 1, y - 16, 16, 16, 4, dot)
+                ctx.fillStyle = '#ffffff'
+                ctx.font = '700 10px sans-serif'
+                ctx.textAlign = 'center'
+                ctx.fillText(letter, pad + 9, y - 5)
+                ctx.textAlign = 'left'
                 ctx.fillStyle = r.free ? green : textMain
                 ctx.font = r.free ? '600 13px sans-serif' : '500 13px sans-serif'
                 const name = r.key.length > 30 ? r.key.slice(0, 29) + '…' : r.key
