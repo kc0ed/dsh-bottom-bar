@@ -1279,7 +1279,8 @@ body[data-ds-dark-theme] .dsh-price-input {
             if (r.decodeMs === null || r.decodeMs <= 0 || r.outputTokens === null) continue
             const u = node.usage
             all.push(Object.assign({}, r, {
-              inTokens: (u !== undefined && u !== null) ? ((u.uncachedInputTokens !== undefined ? u.uncachedInputTokens : 0) + (u.cacheReadTokens !== undefined ? u.cacheReadTokens : 0) + (u.cacheWriteTokens !== undefined ? u.cacheWriteTokens : 0)) : 0,
+              // 修订 133：字段兜底(uncachedInputTokens 缺失时回退 inputTokens)
+              inTokens: (u !== undefined && u !== null) ? (((u.uncachedInputTokens !== undefined ? u.uncachedInputTokens : (u.inputTokens !== undefined ? u.inputTokens : 0))) + (u.cacheReadTokens !== undefined ? u.cacheReadTokens : 0) + (u.cacheWriteTokens !== undefined ? u.cacheWriteTokens : 0)) : 0,
               readTokens: (u !== undefined && u !== null && u.cacheReadTokens !== undefined) ? u.cacheReadTokens : 0,
               writeTokens: (u !== undefined && u !== null && u.cacheWriteTokens !== undefined) ? u.cacheWriteTokens : 0,
             }))
