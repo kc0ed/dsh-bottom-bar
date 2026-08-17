@@ -1748,8 +1748,9 @@ body[data-ds-dark-theme] .dsh-price-input {
                 React.createElement('button', { className: 'dsh-cur-btn' + (peakCur === 'both' ? ' dsh-on' : ''), onClick: () => setPeakCur('both') }, '两类'),
               ))
               nodes.push(tableFor(curModel, 'tbl'))
-              // 修订 92：高峰时段拆成窗口 chips,当前所在窗口高亮（空闲时标在空闲行）
-              const rangeLabels = ['9:00-12:00', '14:00-18:00']
+              // 修订 92/120：高峰时段 chips——优先用该模型自己的窗口(通用峰谷),
+              // 缺省回退 DeepSeek 默认窗口
+              const rangeLabels = Array.isArray(p.ranges) && p.ranges.length > 0 ? p.ranges : ['9:00-12:00', '14:00-18:00']
               nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'win' },
                 React.createElement('span', null, '高峰时段'),
                 React.createElement('span', { className: 'dsh-peak-ranges' },
