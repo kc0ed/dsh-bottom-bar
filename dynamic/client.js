@@ -1631,7 +1631,13 @@ body[data-ds-dark-theme] .dsh-price-input {
               if (estimate === null || estimate.peak === undefined || !estimate.peak.enabled) return null
               const p = estimate.peak
               const nodes = []
-              const money = (v) => (v === null || v === undefined ? '—' : compactMoney(v, 'CNY', 'compact') + '/1M')
+              const money = (v, altV) => {
+                if ((v === null || v === undefined) && (altV === null || altV === undefined)) return '—'
+                const parts = []
+                if (v !== null && v !== undefined) parts.push(compactMoney(v, 'USD', 'compact') + '/1M')
+                if (altV !== null && altV !== undefined) parts.push(compactMoney(altV, 'CNY', 'compact') + '/1M')
+                return parts.join(' / ')
+              }
               const hot = p.window === 'peak' ? 'peak' : 'base'
               const cell = (text, head, colHot) => React.createElement('span', {
                 className: 'dsh-peak-cell' + (head ? ' dsh-peak-cell-head' : '') + (colHot ? ' dsh-peak-cell-hot' : ''),
@@ -1655,14 +1661,14 @@ body[data-ds-dark-theme] .dsh-price-input {
                 cell('高峰', true, hot === 'peak'),
                 cell('空闲', true, hot === 'base'),
                 cell('输入', false, false),
-                cell(money(mm.peakIn), false, hot === 'peak'),
-                cell(money(mm.baseIn), false, hot === 'base'),
+                cell(money(mm.peakIn, mm.peakAltIn), false, hot === 'peak'),
+                cell(money(mm.baseIn, mm.baseAltIn), false, hot === 'base'),
                 cell('缓存读', false, false),
-                cell(money(mm.peakRead), false, hot === 'peak'),
-                cell(money(mm.baseRead), false, hot === 'base'),
+                cell(money(mm.peakRead, mm.peakAltRead), false, hot === 'peak'),
+                cell(money(mm.baseRead, mm.baseAltRead), false, hot === 'base'),
                 cell('输出', false, false),
-                cell(money(mm.peakOut), false, hot === 'peak'),
-                cell(money(mm.baseOut), false, hot === 'base'),
+                cell(money(mm.peakOut, mm.peakAltOut), false, hot === 'peak'),
+                cell(money(mm.baseOut, mm.baseAltOut), false, hot === 'base'),
               )
               if (modelList !== null && modelList.length > 1) {
                 nodes.push(React.createElement(PeakModelSlider, { key: 'sl', models: modelList, curIdx, onPick: setPeakModelIdx, label: modelLabel }))
