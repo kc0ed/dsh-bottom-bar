@@ -1667,9 +1667,9 @@ body[data-ds-dark-theme] .dsh-price-input {
                 return [usd, cny].filter((x) => x !== null).join(' / ') || '—'
               }
               const hot = p.window === 'peak' ? 'peak' : 'base'
-              const cell = (text, head, colHot) => React.createElement('span', {
+              const cell = (text, head, colHot, keyNum) => React.createElement('span', {
                 className: 'dsh-peak-cell' + (head ? ' dsh-peak-cell-head' : '') + (colHot ? ' dsh-peak-cell-hot' : ''),
-                key: text + (head ? 'h' : '') + (colHot ? 'x' : ''),
+                key: 'pc' + keyNum,
               }, text)
               nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'cur' },
                 React.createElement('span', null, '当前时段'),
@@ -1685,18 +1685,18 @@ body[data-ds-dark-theme] .dsh-price-input {
               const curIdx = modelList !== null ? Math.min(peakModelIdx, modelList.length - 1) : 0
               const curModel = modelList !== null ? modelList[curIdx] : p
               const tableFor = (mm, tblKey) => React.createElement('div', { className: 'dsh-peak-table', key: tblKey },
-                cell('单价(1M)', true, false),
-                cell('高峰', true, hot === 'peak'),
-                cell('空闲', true, hot === 'base'),
-                cell('输入', false, false),
-                cell(money(mm.peakIn, mm.peakAltIn), false, hot === 'peak'),
-                cell(money(mm.baseIn, mm.baseAltIn), false, hot === 'base'),
-                cell('缓存读', false, false),
-                cell(money(mm.peakRead, mm.peakAltRead), false, hot === 'peak'),
-                cell(money(mm.baseRead, mm.baseAltRead), false, hot === 'base'),
-                cell('输出', false, false),
-                cell(money(mm.peakOut, mm.peakAltOut), false, hot === 'peak'),
-                cell(money(mm.baseOut, mm.baseAltOut), false, hot === 'base'),
+                cell('单价(1M)', true, false, 0),
+                cell('高峰', true, hot === 'peak', 1),
+                cell('空闲', true, hot === 'base', 2),
+                cell('输入', false, false, 3),
+                cell(money(mm.peakIn, mm.peakAltIn), false, hot === 'peak', 4),
+                cell(money(mm.baseIn, mm.baseAltIn), false, hot === 'base', 5),
+                cell('缓存读', false, false, 6),
+                cell(money(mm.peakRead, mm.peakAltRead), false, hot === 'peak', 7),
+                cell(money(mm.baseRead, mm.baseAltRead), false, hot === 'base', 8),
+                cell('输出', false, false, 9),
+                cell(money(mm.peakOut, mm.peakAltOut), false, hot === 'peak', 10),
+                cell(money(mm.baseOut, mm.baseAltOut), false, hot === 'base', 11),
               )
               if (modelList !== null && modelList.length > 1) {
                 nodes.push(React.createElement(PeakModelSlider, { key: 'sl', models: modelList, curIdx, onPick: setPeakModelIdx, label: modelLabel }))
