@@ -2088,6 +2088,8 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [newModel, setNewModel] = React.useState('')
             const [newIn, setNewIn] = React.useState('')
             const [newInPeak, setNewInPeak] = React.useState('')
+            const [newCtxLimit, setNewCtxLimit] = React.useState('')
+            const [newCtxIn, setNewCtxIn] = React.useState('')
             const [customCurrency, setCustomCurrency] = React.useState('CNY')
             const [customOut, setCustomOut] = React.useState('')
             const [customRead, setCustomRead] = React.useState('')
@@ -2519,9 +2521,28 @@ body[data-ds-dark-theme] .dsh-price-input {
                     out: Math.round(peakInVal * tplRatio * 1000) / 1000,
                   }
                 : undefined
+              // 修订 140：上下文长度分档(可选)——临界 + 超档输入价(缺省=主价×2),
+              // 其余桶按主价比例派生;超档未给 peak 时自动继承主峰谷(计价时峰谷叠档)
+              const ctxLimitVal = Number(newCtxLimit)
+              const hasCtx = newCtxLimit.trim() !== '' && Number.isFinite(ctxLimitVal) && ctxLimitVal > 0
+              const ctxInVal = newCtxIn.trim() !== '' && Number.isFinite(Number(newCtxIn)) && Number(newCtxIn) >= 0 ? Number(newCtxIn) : Math.round(computed.in * 2 * 1000) / 1000
+              const ctxScales = hasCtx
+                ? [{
+                    limit: ctxLimitVal,
+                    price: {
+                      currency: computed.currency,
+                      in: ctxInVal,
+                      cacheRead: computed.cacheRead !== undefined ? Math.round(ctxInVal * (computed.cacheRead / computed.in) * 1000) / 1000 : null,
+                      cacheWrite: computed.cacheWrite !== undefined ? Math.round(ctxInVal * (computed.cacheWrite / computed.in) * 1000) / 1000 : null,
+                      out: Math.round(ctxInVal * tplRatio * 1000) / 1000,
+                    },
+                  }]
+                : undefined
               setNewModel('')
               setNewIn('')
               setNewInPeak('')
+              setNewCtxLimit('')
+              setNewCtxIn('')
               setCustomOut('')
               setCustomRead('')
               setCustomWrite('')
@@ -2534,6 +2555,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                   cacheWrite: computed.cacheWrite === undefined ? null : computed.cacheWrite,
                   out: computed.out,
                   peak,
+                  ctxScales,
                 },
               })
                 .then((result) => { if (result.prices) setPrices(result.prices) })
@@ -2811,7 +2833,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             // 修订 121：行内峰谷编辑——每行 ⛰ 按钮展开高峰价编辑(主行编辑空闲价)
             const priceRowEl = (p) => React.createElement(React.Fragment, { key: p.model },
               React.createElement('div', { className: 'dsh-price-row' },
-                React.createElement('span', { className: 'dsh-price-model', title: p.model }, p.model),
+                React.createElement('span', { className: 'dsh-price-model', title: p.model }, p.model, p.hasPeak === true ? React.createElement('span', { style: { marginLeft: 4, fontSize: 11, fontWeight: 700, color: 'var(--dsw-alias-brand-primary)' }, title: '已设峰谷双价' }, '⛰') : null, p.hasScales === true ? React.createElement('span', { style: { marginLeft: 4, fontSize: 11, fontWeight: 700, color: 'var(--dsw-alias-brand-primary)' }, title: '已设上下文长度分档' }, '档') : null),
                 React.createElement('select', { className: 'dsh-comp-select', style: { width: 66, boxSizing: 'border-box' }, value: p.currency, onChange: (e) => updatePrice(p.model, { currency: e.target.value }) }, ['USD', 'CNY'].map((c) => React.createElement('option', { value: c, key: c }, c))),
                 React.createElement('input', { className: 'dsh-price-input', type: 'number', step: '0.01', value: p.in, title: '输入', onChange: (e) => updatePrice(p.model, { in: num(e.target.value) }) }),
                 React.createElement('input', { className: 'dsh-price-input', type: 'number', step: '0.01', value: (p.cacheRead === undefined || p.cacheRead === null) ? '' : p.cacheRead, title: '缓存读（留空=无此桶）', onChange: (e) => updatePrice(p.model, { cacheRead: numOrUndef(e.target.value) }) }),
@@ -3055,6 +3077,11 @@ body[data-ds-dark-theme] .dsh-price-input {
                   React.createElement('div', { className: 'dsh-price-add', style: { borderTop: 'none', marginTop: 0, paddingTop: 0 } },
                     React.createElement('input', { className: 'dsh-comp-input', type: 'number', step: '0.01', style: { flex: 2 }, placeholder: '高峰输入价（可选，留空=仅单一价）', value: newInPeak, onChange: (e) => setNewInPeak(e.target.value) }),
                     React.createElement('span', { style: { flex: 1, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, '其余桶按厂商比例自动派生高峰价'),
+                  ),
+                  React.createElement('div', { className: 'dsh-price-add', style: { borderTop: 'none', marginTop: 0, paddingTop: 0 } },
+                    React.createElement('input', { className: 'dsh-comp-input', type: 'number', step: '1', style: { flex: 1 }, placeholder: '临界上下文(可选,如 272000)', value: newCtxLimit, onChange: (e) => setNewCtxLimit(e.target.value) }),
+                    React.createElement('input', { className: 'dsh-comp-input', type: 'number', step: '0.01', style: { flex: 1 }, placeholder: '超档输入价(可选,缺省=主价×2)', value: newCtxIn, onChange: (e) => setNewCtxIn(e.target.value) }),
+                    React.createElement('span', { style: { flex: 1.4, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, '超过临界上下文用超档价,其余桶按比例派生'),
                   ),
                   React.createElement('div', { className: 'dsh-price-actions' },
                     // 修订 139：确认流——第一次点进入「待确认」(边缘流光),再点提交;[取消]退出
