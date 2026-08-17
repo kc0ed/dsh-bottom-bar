@@ -61,10 +61,10 @@ const data = {
   freeCount: 1,
   savedTotals: { USD: 1.234 },
   rows: [
-    { key: 'opencode/deepseek-v4-flash-free', tokens: 2721000000*0.002, uncachedInput: 2872730, cacheRead: 24137088, cacheWrite: 0, output: 98328, cost: 0, free: true, refCost: 1.234, refCurrency: 'USD', source: 'official' },
-    { key: 'opencode-go/deepseek-v4-flash', tokens: 2042217+2919247+555917184, uncachedInput: 2042217, cacheRead: 555917184, cacheWrite: 0, output: 2919247, cost: 8.4375, free: false, source: 'channel' },
-    { key: 'deepseek-v4-pro', tokens: 1200000, uncachedInput: 400000, cacheRead: 600000, cacheWrite: 0, output: 200000, cost: 0.66, free: false, source: 'global' },
-    { key: 'unknown-vendor-model', tokens: 300000, uncachedInput: 100000, cacheRead: 150000, cacheWrite: 0, output: 50000, cost: 2.5, free: false, source: 'official' },
+    { key: 'opencode/deepseek-v4-flash-free', tokens: 2721000000*0.002, uncachedInput: 2872730, cacheRead: 24137088, cacheWrite: 0, output: 98328, cost: 0, currency: 'USD', free: true, refCost: 1.234, refCurrency: 'USD', source: 'official' },
+    { key: 'opencode-go/deepseek-v4-flash', tokens: 2042217+2919247+555917184, uncachedInput: 2042217, cacheRead: 555917184, cacheWrite: 0, output: 2919247, cost: 8.4375, currency: 'USD', free: false, source: 'channel' },
+    { key: 'deepseek-v4-pro', tokens: 1200000, uncachedInput: 400000, cacheRead: 600000, cacheWrite: 0, output: 200000, cost: 0.66, currency: 'USD', free: false, source: 'global' },
+    { key: 'unknown-vendor-model', tokens: 300000, uncachedInput: 100000, cacheRead: 150000, cacheWrite: 0, output: 50000, cost: 2.5, currency: 'USD', free: false, source: 'official' },
   ],
 }
 const fmt = (n) => {
@@ -73,7 +73,7 @@ const fmt = (n) => {
   if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K'
   return String(n)
 }
-const money = (v, c) => (c === 'CNY' ? '¥' : '$') + (Math.round(v * 100) / 100).toFixed(2)
+const money = (v, c) => (c === 'USD' ? '$' : '¥') + (Math.round(v * 100) / 100).toFixed(2)
 // models.dev provider logo 映射(按模型厂商段)
 const provOf = (key) => {
   const model = key.indexOf('/') >= 0 ? key.slice(key.indexOf('/') + 1) : key
