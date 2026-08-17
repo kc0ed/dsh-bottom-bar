@@ -1525,8 +1525,15 @@ body[data-ds-dark-theme] .dsh-price-input {
                 const models = Array.isArray(p.models) && p.models.length > 0 ? p.models : null
                 const idx = models !== null ? Math.min(peakModelIdx, models.length - 1) : 0
                 const cur = models !== null ? models[idx] : p
-                const inPrice = p.window === 'peak' ? cur.peakIn : cur.baseIn
-                const priceText = inPrice !== null && inPrice !== undefined ? compactMoney(inPrice, cur.currency || 'USD', 'compact') + '/1M' : ''
+                // 修订 122：底栏币种跟随详情弹层设定——peakCur=USD→$、CNY→¥、
+                // 「两类」→默认人民币;模型无 alt(CNY)时回落主币种
+                const hasCny = cur.baseAltIn !== null && cur.baseAltIn !== undefined
+                const useCny = peakCur !== 'usd' && hasCny
+                const inPrice = p.window === 'peak'
+                  ? (useCny ? cur.peakAltIn : cur.peakIn)
+                  : (useCny ? cur.baseAltIn : cur.baseIn)
+                const inCurrency = useCny ? 'CNY' : (cur.currency || 'USD')
+                const priceText = inPrice !== null && inPrice !== undefined ? compactMoney(inPrice, inCurrency, 'compact') + '/1M' : ''
                 const when = p.window === 'peak' ? '⏱ 高峰' : '⏱ 空闲'
                 const ref = p.priced ? '' : ' 参考'
                 const modelTag = models !== null && models.length > 1
