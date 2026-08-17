@@ -9,22 +9,70 @@ DSH 底栏统计 + 预估费用插件:把聊天界面最底下那行统计接管
 
 ## 安装
 
-前提:装了 [pnpm](https://pnpm.io/installation)。然后**一条命令**:
+### 0. 前置(两条都要有,缺一不可)
+
+```bash
+# ① Node.js(用它装下面两个)
+# ② pnpm —— dsh plugin 是 pnpm 转发器,没它必挂:
+npm i -g pnpm
+# ③ dsh 命令行(有就跳过):
+npm i -g @deepseek-ai/dsh
+```
+
+装完**重开一个新的终端**(PATH 才生效),验证:
+
+```bash
+pnpm -v        # 能打印版本号 = OK
+dsh --version  # 能打印版本号 = OK
+```
+
+### 1. 方式一:npm 稳定版(推荐,省心)
 
 ```bash
 dsh plugin --profile web add @kc0ed/dsh-bottom-bar
 ```
 
-- 想装到别的 profile(比如 headless)就把 `web` 换成 profile 名
-- 不想走 npm,也可以直接从 GitHub 装:`dsh plugin --profile web add github:kc0ed/dsh-bottom-bar`
-- 这条命令会自动:初始化 profile(首次)→ 装包 → 把插件写进 `dsh.profile.bundles` 层清单。**装完啥都不用手改**
+- 跟随 npm 发布节奏(发新版才更新),**稳定**,不折腾
+- 缺点:GitHub 有新改动时,要等发版才能拿到(可能慢一两天)
+- 更新到最新版:
 
-装完记得:
+```bash
+dsh plugin --profile web update @kc0ed/dsh-bottom-bar
+```
+
+### 2. 方式二:GitHub 直装(类似 nightly,永远最新)
+
+```bash
+dsh plugin --profile web add github:kc0ed/dsh-bottom-bar
+```
+
+- 直接拉仓库 main 分支,**代码推到 GitHub 即可用**,不等发版
+- 缺点:可能吃到刚提交还没充分测试的改动;且可能触发 pnpm 的 git 构建审批(见下方「常见坑-3」)
+- 更新:`git pull` 后重跑一次 add 即可(或 `cd ~/.dsh/profiles/web && pnpm update github:kc0ed/dsh-bottom-bar`)
+
+### 3. 装完(两种方式都一样)
 
 1. **彻底退出 DSH 再重启**(`dsh web` 前老进程得死透,刷新页面不算)
 2. 浏览器 **Ctrl+Shift+R 硬刷新**——不是没装上,是缓存记性好
+3. 想装到别的 profile(如 headless)就把 `web` 换成 profile 名
 
 卸载:`dsh plugin --profile web remove @kc0ed/dsh-bottom-bar`(依赖和层栈一起清)
+
+### 常见坑
+
+1. **`'pnpm' 不是内部或外部命令`** → pnpm 没装,或装完没重开终端。先 `npm i -g pnpm`,重开终端,`pnpm -v` 验证再继续。
+2. **命令报「不是内部或外部命令」且命令看起来残缺** → 大概率是终端粘贴把长命令拆碎了。**一行一行手敲**,注意:`@kc0ed` 中间是**数字 0**(不是字母 O)。
+3. **`pnpm failed` + 提示 allowBuilds(git 方式常见)** → pnpm 10 默认拦截 git 依赖的构建脚本,需要显式批准:
+   1. 看报错里打印的 **exact key**(引号里那串,形如 `github.com/kc0ed/dsh-bottom-bar`)
+   2. 编辑 `~/.dsh/profiles/web/pnpm-workspace.yaml`,加:
+
+      ```yaml
+      allowBuilds:
+        <exact-key>: "dsh"
+      ```
+
+   3. 保存后重跑第 1/2 步的 add 命令。
+4. **装完底栏没变化** → 先 Ctrl+Shift+R;还不行就彻底退出 DSH 再启动。
 
 > ⚠️ 装了静态包之后,别再同时跑「动态插件」形态,两个实例写同一个账本会打架。
 
