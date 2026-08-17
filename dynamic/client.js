@@ -1443,7 +1443,16 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [peakModelIdx, setPeakModelIdx] = React.useState(0)
             const [peakCur, setPeakCur] = React.useState('both')
             // 修订 126：吞吐明细统计窗口滑槽(0=全部,1=最近100)
-            const [tputWin, setTputWin] = React.useState(0)
+            // 修订 135：统计窗口选择持久化——localStorage 存 tputWin,页面刷新/重挂载后恢复
+            const [tputWin, setTputWin] = React.useState(() => {
+              try {
+                return (typeof localStorage !== 'undefined' && localStorage.getItem('dsh-bottom-bar:tputWin') === '1') ? 1 : 0
+              } catch (e) { return 0 }
+            })
+            const chooseTputWin = (i) => {
+              setTputWin(i)
+              try { if (typeof localStorage !== 'undefined') localStorage.setItem('dsh-bottom-bar:tputWin', i === 1 ? '1' : '0') } catch (e) { /* ignore */ }
+            }
             // 修订 124：底栏货币——点 USD/CNY 时跟随;点「两类」保持当前显示不跳动
             const [barCur, setBarCur] = React.useState('usd')
             const chooseCur = (v) => {
@@ -1787,7 +1796,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                     slider: true,
                     models: ['全部', '最近 100'],
                     curIdx: tputWin,
-                    onPick: setTputWin,
+                    onPick: chooseTputWin,
                   }]
                   rows.push(['平均吞吐', formatTokensPerSecond(win.decodeMs > 0 ? win.decodeTokens / (win.decodeMs / 1e3) : 0) + ' tok/s'])
                   rows.push(['输出 token', formatTokens(win.decodeTokens) + ' tok'])
@@ -1805,7 +1814,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                     slider: true,
                     models: ['全部', '最近 100'],
                     curIdx: tputWin,
-                    onPick: setTputWin,
+                    onPick: chooseTputWin,
                   }]
                   if (tputWin === 1) {
                     // 修订 132：按真实桶拆分——「未缓存输入」= 总输入−缓存读−缓存写,
