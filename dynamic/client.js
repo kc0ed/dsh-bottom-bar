@@ -1394,6 +1394,16 @@ body[data-ds-dark-theme] .dsh-price-input {
           const clamped = Math.max(0, tps)
           return clamped >= 10 ? String(Math.round(clamped)) : String(Math.round(clamped * 10) / 10)
         }
+        // 修订 142：上下文量压缩显示——1200000→1.2M、250000→250k、1536→1.5k
+        const formatCtx = (n) => {
+          if (!Number.isFinite(n)) return String(n)
+          if (n >= 1e6) return (Math.round(n / 1e6 * 10) / 10) + 'M'
+          if (n >= 1e3) {
+            const k = n / 1e3
+            return (k >= 100 ? String(Math.round(k)) : String(Math.round(k * 10) / 10)) + 'k'
+          }
+          return String(n)
+        }
         const billedInputTokens = (usage) => (usage ? usage.uncachedInputTokens : 0) + (usage ? usage.cacheReadTokens : 0) + (usage ? usage.cacheWriteTokens : 0)
         const cacheHitPercent = (usage) => {
           const denominator = billedInputTokens(usage)
@@ -2547,7 +2557,8 @@ body[data-ds-dark-theme] .dsh-price-input {
                 cacheRead: Math.round(inPrice * tpl.read * 1000) / 1000,
                 cacheWrite: Math.round(inPrice * tpl.write * 1000) / 1000,
                 out: Math.round(inPrice * tpl.out * 1000) / 1000,
-                tplName: tplName !== '' ? tplName : tpl.name,
+                // 修订 142：LEGACY_TPLS 无 name → 显示兼容比例标签(原来 undefined)
+                tplName: tplName !== '' ? tplName : (tpl.name !== undefined ? tpl.name : '兼容比例(旧系列)'),
               }
             }
 
@@ -3160,7 +3171,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                         const cv = Number(newCtxLimit)
                         const cin = newCtxIn.trim() !== '' && Number.isFinite(Number(newCtxIn)) && Number(newCtxIn) >= 0 ? Number(newCtxIn) : Math.round(preview.in * 2 * 1000) / 1000
                         const cOut = Math.round(cin * tplRatio * 1000) / 1000
-                        extras.push('📏 超过 ' + cv + ' 上下文 · 输入 ' + sym + cin + '/1M · 输出 ' + sym + cOut + '/1M')
+                        extras.push('📏 超过 ' + formatCtx(cv) + ' 上下文 · 输入 ' + sym + cin + '/1M · 输出 ' + sym + cOut + '/1M')
                       }
                       if (newModel.trim() === '') {
                         return React.createElement('div', { className: 'dsh-price-preview-hint' }, '填写模型 id 后自动识别厂商、按官方比例派生价格预览;需要峰谷/分档可继续填右侧可选行。')
