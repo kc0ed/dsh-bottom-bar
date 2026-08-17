@@ -812,19 +812,18 @@ body[data-ds-dark-theme] .dsh-comp-row.dsh-just-moved {
   gap: 14px;
   padding: 7px 16px;
   border-radius: 999px;
-  background: rgba(44, 39, 32, 0.90);
+  background: rgba(44, 39, 32, 0.95);
   border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary) 50%, transparent);
   color: #FFFFFF;
   font-size: 12.5px;
   font-weight: 500;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  /* 修订 123：去掉毛玻璃模糊——底衬文字被糊住;背景已 95% 实底,blur 无必要 */
   animation: dsh-pill-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: auto;
 }
 body[data-ds-dark-theme] .dsh-multi-bar {
-  background: rgba(26, 25, 22, 0.94);
+  background: rgba(26, 25, 22, 0.97);
   border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
