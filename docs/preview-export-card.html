@@ -27,7 +27,8 @@
   .dark .sep { border-color: #343437; }
   .row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
   .row .name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .logo { width: 16px; height: 16px; border-radius: 4px; object-fit: contain; flex: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
   .row .right { display: flex; gap: 12px; align-items: baseline; }
   .row .tok { font-size: 11px; color: #9c9c9a; }
   .row .cost { font-size: 12px; }
@@ -72,6 +73,24 @@ const fmt = (n) => {
   return String(n)
 }
 const money = (v, c) => (c === 'CNY' ? '¥' : '$') + (Math.round(v * 100) / 100).toFixed(2)
+// models.dev provider logo 映射(按模型厂商段)
+const provOf = (key) => {
+  const model = key.indexOf('/') >= 0 ? key.slice(key.indexOf('/') + 1) : key
+  const m = model.toLowerCase()
+  if (m.indexOf('deepseek') !== -1) return 'deepseek'
+  if (m.indexOf('claude') !== -1) return 'anthropic'
+  if (m.indexOf('gpt') !== -1 || m.indexOf('o1') === 0 || m.indexOf('o3') === 0 || m.indexOf('o4') === 0) return 'openai'
+  if (m.indexOf('gemini') !== -1 || m.indexOf('google') !== -1) return 'google'
+  if (m.indexOf('kimi') !== -1 || m.indexOf('moonshot') !== -1) return 'moonshot'
+  if (m.indexOf('glm') !== -1 || m.indexOf('zhipu') !== -1) return 'zhipu'
+  if (m.indexOf('qwen') !== -1) return 'alibaba'
+  if (m.indexOf('grok') !== -1 || m.indexOf('xai') !== -1) return 'xai'
+  if (m.indexOf('doubao') !== -1) return 'volcengine'
+  if (m.indexOf('minimax') !== -1) return 'minimax'
+  if (m.indexOf('mistral') !== -1) return 'mistral'
+  if (m.indexOf('llama') !== -1) return 'meta'
+  return null
+}
 
 function render(mode) {
   const dark = mode === 'dark'
@@ -93,6 +112,10 @@ function render(mode) {
     <div class="sep"></div>
     ${data.rows.map((r) => {
       const dotColor = r.free ? '#10b981' : (r.source === 'channel' ? (dark ? '#f2b18c' : '#c15f3c') : (r.source === 'global' ? '#4a90d9' : '#9c9c9a'))
+      const logo = provOf(r.key)
+      const icon = logo
+        ? '<img class="logo" src="https://models.dev/logos/' + logo + '.svg" alt="" onerror="this.style.display=\'none\'">'
+        : '<span class="dot" style="background:' + dotColor + '"></span>'
       const costText = r.free ? '免费省 ' + money(r.refCost, r.refCurrency) : money(r.cost, r.currency || 'CNY')
       const buckets = []
       if (r.uncachedInput > 0) buckets.push('输入 ' + fmt(r.uncachedInput))
@@ -101,7 +124,7 @@ function render(mode) {
       if (r.output > 0) buckets.push('输出 ' + fmt(r.output))
       return `
         <div class="row ${r.free ? 'free' : ''}">
-          <span class="name"><span class="dot" style="background:${dotColor}"></span>${r.key}</span>
+          <span class="name">${icon}${r.key}</span>
           <span class="right"><span class="tok">${fmt(r.tokens)} tok</span><span class="cost">${costText}</span></span>
         </div>
         <div class="sub">${buckets.join(' · ')}</div>`
