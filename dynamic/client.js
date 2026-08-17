@@ -2332,59 +2332,124 @@ body[data-ds-dark-theme] .dsh-price-input {
             const exportSummaryImage = () => {
               const all = fullAll
               if (!all || all.hasUsage !== true) return
-              const pad = 16
-              const w = 660
-              const lineH = 20
+              const isDark = document.body !== null && document.body.getAttribute('data-ds-dark-theme') !== null
+              // 主题色(canvas 直接读 CSS 变量,跟随主题)
+              const cssVar = (name, fb) => {
+                try {
+                  const v = window.getComputedStyle(document.body).getPropertyValue(name).trim()
+                  return v !== '' ? v : fb
+                } catch (e) { return fb }
+              }
+              const brand = cssVar('--dsw-alias-brand-primary', isDark ? '#f2b18c' : '#c15f3c')
+              const textMain = isDark ? '#eaeae8' : '#22221f'
+              const textSub = isDark ? '#9c9c9a' : '#7a7a77'
+              const lineC = isDark ? '#343437' : '#e4e4e2'
+              const cardBg = isDark ? '#242427' : '#f2f2f0'
+              const green = '#10b981'
+              const blue = '#4a90d9'
+              // 圆角矩形
+              const rr = (x, y, w, h, r, fill) => {
+                ctx.beginPath()
+                ctx.moveTo(x + r, y)
+                ctx.arcTo(x + w, y, x + w, y + h, r)
+                ctx.arcTo(x + w, y + h, x, y + h, r)
+                ctx.arcTo(x, y + h, x, y, r)
+                ctx.arcTo(x, y, x + w, y, r)
+                ctx.closePath()
+                ctx.fillStyle = fill
+                ctx.fill()
+              }
+              const alpha = (hex, a) => {
+                const n = parseInt(hex.slice(1), 16)
+                return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'
+              }
+              const pad = 24
+              const w = 720
+              const bodyW = w - pad * 2
               const rows = all.rows.slice(0, 30)
-              const h = pad * 2 + 40 + 30 + 20 + rows.length * lineH + 34 + 20
+              const cardH = 84
+              const gap = 14
+              const listTop = pad + 46 + cardH + gap + 34
+              const h = listTop + rows.length * 26 + 44 + 26
               const cv = document.createElement('canvas')
               cv.width = w
               cv.height = h
               const ctx = cv.getContext('2d')
-              const isDark = document.body !== null && document.body.getAttribute('data-ds-dark-theme') !== null
-              ctx.fillStyle = isDark ? '#1c1c1f' : '#ffffff'
+              // 背景
+              ctx.fillStyle = isDark ? '#161618' : '#fbfbf9'
               ctx.fillRect(0, 0, w, h)
               ctx.textBaseline = 'alphabetic'
-              ctx.fillStyle = isDark ? '#e9e9e7' : '#1a1a18'
-              ctx.font = '600 17px sans-serif'
-              ctx.fillText('DSH 费用统计', pad, pad + 16)
-              ctx.fillStyle = isDark ? '#b0b0ae' : '#6b6b68'
+              // 标题 + 日期
+              ctx.fillStyle = brand
+              ctx.font = '700 22px sans-serif'
+              ctx.fillText('DSH 费用统计', pad, pad + 18)
+              ctx.fillStyle = textSub
               ctx.font = 'normal 11px sans-serif'
-              ctx.fillText('综合所有渠道/模型 · ' + (all.at ? new Date(all.at).toLocaleString() : ''), pad, pad + 32)
-              let y = pad + 52
-              ctx.fillStyle = isDark ? '#e0e0de' : '#2a2a28'
+              ctx.textAlign = 'right'
+              ctx.fillText(all.at ? new Date(all.at).toLocaleString() : '', w - pad, pad + 16)
+              ctx.textAlign = 'left'
+              // 三个统计块
+              const blockW = (bodyW - gap * 2) / 3
+              const blocks = [
+                { label: '总 Tokens', value: formatTokens(all.totalTokens), fill: alpha(brand, 0.14), val: brand },
+                { label: '预估费用', value: Object.keys(all.totals).map((k) => compactMoney(all.totals[k], k, 'full')).join(' + '), fill: alpha(blue, 0.14), val: blue },
+                { label: '缓存命中率', value: all.hitRate === null ? '—' : all.hitRate + '%', fill: alpha(green, 0.14), val: green },
+              ]
+              blocks.forEach((b, i) => {
+                const bx = pad + i * (blockW + gap)
+                rr(bx, pad + 34, blockW, cardH, 14, b.fill)
+                ctx.fillStyle = textSub
+                ctx.font = '500 11px sans-serif'
+                ctx.fillText(b.label, bx + 14, pad + 34 + 22)
+                ctx.fillStyle = b.val
+                ctx.font = '700 17px sans-serif'
+                ctx.fillText(b.value.length > 16 ? b.value.slice(0, 15) + '…' : b.value, bx + 14, pad + 34 + 52)
+              })
+              // 明细区标题
+              ctx.fillStyle = textMain
               ctx.font = '600 13px sans-serif'
-              ctx.fillText('总 tokens: ' + formatTokens(all.totalTokens), pad, y)
-              const totalText = Object.keys(all.totals).map((k) => compactMoney(all.totals[k], k, 'full')).join('   ')
-              ctx.fillText('预估费用: ' + totalText, pad, y + 20)
-              if (all.hitRate !== null) ctx.fillText('缓存命中率: ' + all.hitRate + '%', pad, y + 40)
-              y += 30 + 34
-              ctx.strokeStyle = isDark ? '#3a3a3d' : '#e0e0df'
+              ctx.fillText('分渠道明细', pad, listTop - 12)
+              ctx.strokeStyle = lineC
               ctx.beginPath()
-              ctx.moveTo(pad, y - 10)
-              ctx.lineTo(w - pad, y - 10)
+              ctx.moveTo(pad, listTop - 4)
+              ctx.lineTo(w - pad, listTop - 4)
               ctx.stroke()
+              // 明细行:来源色点 + 名称 / token / 费用
+              let y = listTop + 6
               for (const r of rows) {
-                ctx.fillStyle = isDark ? '#cfcfcd' : '#333'
-                ctx.font = 'normal 12px sans-serif'
-                ctx.fillText(r.key, pad, y)
+                const dot = r.free ? green : (r.source === 'channel' ? brand : (r.source === 'global' ? blue : textSub))
+                ctx.beginPath()
+                ctx.arc(pad + 5, y - 4, 4, 0, Math.PI * 2)
+                ctx.fillStyle = dot
+                ctx.fill()
+                ctx.fillStyle = r.free ? green : textMain
+                ctx.font = r.free ? '600 13px sans-serif' : '500 13px sans-serif'
+                const name = r.key.length > 34 ? r.key.slice(0, 33) + '…' : r.key
+                ctx.fillText(name, pad + 16, y)
+                const costText = r.free ? ('免费省 ' + (r.refCost !== null && r.refCost !== undefined ? compactMoney(r.refCost, r.refCurrency, 'compact') : '')) : compactMoney(r.cost, r.currency, 'compact')
                 ctx.textAlign = 'right'
-                ctx.fillText(formatTokens(r.tokens) + ' tok', w - pad, y)
+                ctx.font = r.free ? '600 12px sans-serif' : 'normal 12px sans-serif'
+                ctx.fillStyle = r.free ? green : textMain
+                ctx.fillText(costText, w - pad, y)
+                ctx.fillStyle = textSub
+                ctx.font = 'normal 11px sans-serif'
+                ctx.fillText(formatTokens(r.tokens) + ' tok', w - pad - 110, y)
                 ctx.textAlign = 'left'
-                const costText = compactMoney(r.cost, r.currency, 'compact')
-                ctx.fillStyle = r.free ? '#10b981' : (isDark ? '#9a9a98' : '#777')
-                ctx.fillText((r.free ? '免费 ' : '') + costText, pad + 330, y)
-                y += lineH
+                y += 26
               }
+              // 免费横幅
               if (all.freeCount > 0) {
-                ctx.fillStyle = '#10b981'
+                const savedText = all.savedTotals !== null && all.savedTotals !== undefined && Object.keys(all.savedTotals).length > 0 ? '按官方价已省 ' + Object.keys(all.savedTotals).map((k) => compactMoney(all.savedTotals[k], k, 'full')).join(' ') : '按官方价计费为 0'
+                rr(pad, y + 6, bodyW, 34, 12, alpha(green, 0.14))
+                ctx.fillStyle = green
                 ctx.font = '600 12px sans-serif'
-                const savedText = all.savedTotals !== null && all.savedTotals !== undefined && Object.keys(all.savedTotals).length > 0 ? ' · 按官方价已省 ' + Object.keys(all.savedTotals).map((k) => compactMoney(all.savedTotals[k], k, 'full')).join(' ') : ''
-                ctx.fillText('其中 ' + all.freeCount + ' 个免费渠道' + savedText, pad, y + 6)
+                ctx.fillText('🎉 其中 ' + all.freeCount + ' 个免费渠道 · ' + savedText, pad + 14, y + 27)
+                y += 40 + 12
               }
-              ctx.fillStyle = isDark ? '#8a8a88' : '#999'
+              // 页脚
+              ctx.fillStyle = textSub
               ctx.font = 'normal 10px sans-serif'
-              ctx.fillText('由 dsh-bottom-bar 生成 · 仅供参考,实际以账单为准', pad, h - 8)
+              ctx.fillText('由 dsh-bottom-bar 生成 · 估算仅供参考,实际以账单为准', pad, h - 8)
               const a = document.createElement('a')
               a.download = 'dsh-cost-summary-' + Date.now() + '.png'
               a.href = cv.toDataURL('image/png')
