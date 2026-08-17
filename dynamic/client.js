@@ -1803,11 +1803,12 @@ body[data-ds-dark-theme] .dsh-price-input {
                     onPick: setTputWin,
                   }]
                   if (tputWin === 1) {
-                    rows.push(['未缓存输入', formatTokens(r100.inTokens) + ' tok'])
+                    // 修订 132：按真实桶拆分——「未缓存输入」= 总输入−缓存读−缓存写,
+                    // 与底栏 separate 口径一致(之前误显示总输入,标签名不副实)
+                    rows.push(['未缓存输入', formatTokens(r100.inTokens - r100.readTokens - r100.writeTokens) + ' tok'])
                     rows.push(['缓存读', formatTokens(r100.readTokens) + ' tok'])
                     rows.push(['缓存写', formatTokens(r100.writeTokens) + ' tok'])
                     rows.push(['输出', formatTokens(r100.outputTokens) + ' tok'])
-                    // 修订 131：去掉「请求数」行——两窗口行数一致,切换不跳高
                   } else if (usageActive) {
                     rows.push(['未缓存输入', formatTokens(usage.uncachedInputTokens || 0) + ' tok'])
                     rows.push(['缓存读', formatTokens(usage.cacheReadTokens || 0) + ' tok'])
