@@ -1428,6 +1428,8 @@ body[data-ds-dark-theme] .dsh-price-input {
             // 修订 89：峰谷明细弹层的模型切换索引（◀ 模型名 ▶）
             const [peakModelIdx, setPeakModelIdx] = React.useState(0)
             const [peakCur, setPeakCur] = React.useState('both')
+            // 修订 126：吞吐明细统计窗口滑槽(0=全部,1=最近100)
+            const [tputWin, setTputWin] = React.useState(0)
             // 修订 124：底栏货币——点 USD/CNY 时跟随;点「两类」保持当前显示不跳动
             const [barCur, setBarCur] = React.useState('usd')
             const chooseCur = (v) => {
@@ -1726,15 +1728,23 @@ body[data-ds-dark-theme] .dsh-price-input {
                 case 'toolCall': return [['工具调用总时长', formatDuration(stats.toolMs)]]
                 case 'ttft': return [['首 token 总耗时', formatDuration(stats.ttftMs)], ['步数', String(stats.ttftSteps)], ['平均', stats.ttftSteps > 0 ? formatDuration(stats.ttftMs / stats.ttftSteps) : '—']]
                 case 'throughput': {
-                  const rows = [['平均吞吐', formatTokensPerSecond(stats.decodeMs > 0 ? stats.decodeTokens / (stats.decodeMs / 1e3) : 0) + ' tok/s'], ['输出 token', formatTokens(stats.decodeTokens)], ['解码时长', formatDuration(stats.decodeMs)]]
-                  // 修订 125：最近 100 次请求的吞吐/时延(客户端扫节点,零 host 改动)
                   const r100 = requestStatsOf(settledNodes, 100)
-                  if (r100.count > 0) {
-                    rows.push(['最近 100 次 · 平均吞吐', formatTokensPerSecond(r100.decodeMs > 0 ? r100.outputTokens / (r100.decodeMs / 1e3) : 0) + ' tok/s'])
-                    rows.push(['最近 100 次 · 输出', formatTokens(r100.outputTokens) + ' tok'])
-                    if (r100.ttftMs !== null) rows.push(['最近 100 次 · 首 token 均', formatDuration(r100.ttftMs)])
-                    rows.push(['最近 100 次 · 请求数', String(r100.count)])
-                  }
+                  // 修订 126：统计窗口滑槽——「全部 / 最近 100」切换,数据跟随
+                  const isRecent = tputWin === 1
+                  const win = isRecent
+                    ? { decodeMs: r100.decodeMs, decodeTokens: r100.outputTokens, ttftMs: r100.ttftMs, ttftN: r100.count }
+                    : { decodeMs: stats.decodeMs, decodeTokens: stats.decodeTokens, ttftMs: stats.ttftSteps > 0 ? stats.ttftMs / stats.ttftSteps : null, ttftN: isRecent ? 0 : stats.steps }
+                  const rows = [{
+                    slider: true,
+                    models: ['全部', '最近 100'],
+                    curIdx: tputWin,
+                    onPick: setTputWin,
+                  }]
+                  rows.push(['平均吞吐', formatTokensPerSecond(win.decodeMs > 0 ? win.decodeTokens / (win.decodeMs / 1e3) : 0) + ' tok/s'])
+                  rows.push(['输出 token', formatTokens(win.decodeTokens) + ' tok'])
+                  rows.push(['解码时长', formatDuration(win.decodeMs)])
+                  rows.push([isRecent ? '请求数' : '步数', String(win.ttftN)])
+                  if (win.ttftMs !== null) rows.push(['平均首 token', formatDuration(win.ttftMs)])
                   return rows
                 }
                 case 'cacheHit': return usageActive
@@ -1904,10 +1914,13 @@ body[data-ds-dark-theme] .dsh-price-input {
                 : (() => {
                 const rows = segDetailRows(detailSeg)
                 if (rows === null) return null
-                return rows.map((row, i) => React.createElement('div', { className: 'dsh-detail-row', key: i },
-                  React.createElement('span', null, row[0]),
-                  React.createElement('span', null, row[1]),
-                ))
+                return rows.map((row, i) => (row !== null && row !== undefined && row.slider === true)
+                  ? React.createElement(PeakModelSlider, { key: 'sl-' + i, models: row.models, curIdx: row.curIdx, onPick: row.onPick, label: (m) => m })
+                  : React.createElement('div', { className: 'dsh-detail-row', key: i },
+                    React.createElement('span', null, row[0]),
+                    React.createElement('span', null, row[1]),
+                  ),
+                )
               })()
             // 修订 16：永不返回 null（槽位看到 null 会回退官方 StatsLine）
             return React.createElement(DockBoundary, null,
