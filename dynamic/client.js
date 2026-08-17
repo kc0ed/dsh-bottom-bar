@@ -1902,6 +1902,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             const [vendorTpl, setVendorTpl] = React.useState('auto')
             const [newModel, setNewModel] = React.useState('')
             const [newIn, setNewIn] = React.useState('')
+            const [newInPeak, setNewInPeak] = React.useState('')
             const [customCurrency, setCustomCurrency] = React.useState('CNY')
             const [customOut, setCustomOut] = React.useState('')
             const [customRead, setCustomRead] = React.useState('')
@@ -2320,8 +2321,22 @@ body[data-ds-dark-theme] .dsh-price-input {
               const id = newModel.trim()
               if (id === '') return
               const computed = computePreviewPrice()
+              // 修订 119：高峰输入价(可选)——填了就给该价配峰谷双价,其余桶按比例派生
+              const peakInVal = Number(newInPeak)
+              const hasPeak = newInPeak.trim() !== '' && Number.isFinite(peakInVal) && peakInVal >= 0
+              const tplRatio = computed.out !== 0 && computed.in !== 0 ? computed.out / computed.in : 3
+              const peak = hasPeak
+                ? {
+                    currency: computed.currency,
+                    in: peakInVal,
+                    cacheRead: computed.cacheRead !== undefined ? Math.round(peakInVal * (computed.cacheRead / computed.in) * 1000) / 1000 : null,
+                    cacheWrite: computed.cacheWrite !== undefined ? Math.round(peakInVal * (computed.cacheWrite / computed.in) * 1000) / 1000 : null,
+                    out: Math.round(peakInVal * tplRatio * 1000) / 1000,
+                  }
+                : undefined
               setNewModel('')
               setNewIn('')
+              setNewInPeak('')
               setCustomOut('')
               setCustomRead('')
               setCustomWrite('')
@@ -2333,6 +2348,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                   cacheRead: computed.cacheRead === undefined ? null : computed.cacheRead,
                   cacheWrite: computed.cacheWrite === undefined ? null : computed.cacheWrite,
                   out: computed.out,
+                  peak,
                 },
               })
                 .then((result) => { if (result.prices) setPrices(result.prices) })
@@ -2608,7 +2624,7 @@ body[data-ds-dark-theme] .dsh-price-input {
               .join(' | ')
             const hasPreviewSegs = previewDockTitle !== ''
             const priceRowEl = (p) => React.createElement('div', { className: 'dsh-price-row', key: p.model },
-              React.createElement('span', { className: 'dsh-price-model', title: p.model }, p.model),
+              React.createElement('span', { className: 'dsh-price-model', title: p.model }, p.model, p.hasPeak === true ? React.createElement('span', { style: { marginLeft: 4, fontSize: 11, fontWeight: 700, color: 'var(--dsw-alias-brand-primary)' }, title: '已设峰谷双价' }, '⛰') : null),
               React.createElement('select', { className: 'dsh-comp-select', style: { width: 66, boxSizing: 'border-box' }, value: p.currency, onChange: (e) => updatePrice(p.model, { currency: e.target.value }) }, ['USD', 'CNY'].map((c) => React.createElement('option', { value: c, key: c }, c))),
               React.createElement('input', { className: 'dsh-price-input', type: 'number', step: '0.01', value: p.in, title: '输入', onChange: (e) => updatePrice(p.model, { in: num(e.target.value) }) }),
               React.createElement('input', { className: 'dsh-price-input', type: 'number', step: '0.01', value: (p.cacheRead === undefined || p.cacheRead === null) ? '' : p.cacheRead, title: '缓存读（留空=无此桶）', onChange: (e) => updatePrice(p.model, { cacheRead: numOrUndef(e.target.value) }) }),
@@ -2825,9 +2841,14 @@ body[data-ds-dark-theme] .dsh-price-input {
                   return React.createElement('div', { className: 'dsh-price-template-card' },
                     React.createElement('div', { className: 'dsh-price-add' },
                       React.createElement('input', { type: 'text', style: { flex: 1.5 }, placeholder: '模型 id，如 opencode/deepseek-v4-flash', value: newModel, onChange: (e) => setNewModel(e.target.value) }),
-                      React.createElement('input', { type: 'number', step: '0.01', style: { flex: 1 }, placeholder: '输入单价 (' + preview.currency + ')', value: newIn, onChange: (e) => setNewIn(e.target.value) }),
+                      React.createElement('input', { type: 'number', step: '0.01', style: { flex: 1 }, placeholder: '空闲输入价 (' + preview.currency + ')', value: newIn, onChange: (e) => setNewIn(e.target.value) }),
                       React.createElement('button', { className: 'dsh-comp-btn', onClick: addPrice }, '添加/更新价格'),
                       React.createElement('button', { className: 'dsh-comp-btn', onClick: resetPrices }, '恢复默认价格'),
+                    ),
+                    // 修订 119：高峰输入价(可选)——填了即为该价定义峰谷双价
+                    React.createElement('div', { className: 'dsh-price-add', style: { borderTop: 'none', marginTop: 0, paddingTop: 0 } },
+                      React.createElement('input', { type: 'number', step: '0.01', style: { flex: 1.5 }, placeholder: '高峰输入价（可选，留空=仅单一价）', value: newInPeak, onChange: (e) => setNewInPeak(e.target.value) }),
+                      React.createElement('span', { style: { flex: 1, fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, '其余桶按厂商比例自动派生高峰价'),
                     ),
                     React.createElement('div', { className: 'dsh-price-preview-badge' },
                       React.createElement('span', null, '💡 ' + (vendorTpl === 'auto' ? '自动识别: ' : '已选: ') + preview.tplName),
