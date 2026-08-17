@@ -7,22 +7,27 @@
   body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; background: #e9e9e7; margin: 0; padding: 32px 24px; display: flex; flex-direction: column; gap: 28px; align-items: center; }
   h1 { font-size: 18px; color: #333; margin: 0; }
   .note { font-size: 12px; color: #888; }
-  .card { width: 720px; border-radius: 18px; padding: 24px; box-sizing: border-box; }
-  .card.light { background: #fbfbf9; color: #22221f; box-shadow: 0 8px 30px rgba(0,0,0,.08); }
-  .card.dark { background: #161618; color: #eaeae8; box-shadow: 0 8px 30px rgba(0,0,0,.35); }
-  .head { display: flex; justify-content: space-between; align-items: baseline; }
+  .card { width: 720px; border-radius: 20px; padding: 26px 28px; box-sizing: border-box; }
+  .card.light { background: #fdfdfb; color: #22221f; box-shadow: 0 10px 34px rgba(0,0,0,.09); border: 1px solid #eceae8; }
+  .card.dark { background: #19191c; color: #eaeae8; box-shadow: 0 10px 34px rgba(0,0,0,.4); border: 1px solid #2a2a2e; }
+  .head { display: flex; align-items: center; gap: 12px; }
+  .brandlogo { width: 30px; height: 30px; border-radius: 9px; background: #c15f3c; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; flex: none; }
+  .dark .brandlogo { background: #f2b18c; color: #19191c; }
+  .head .ht { flex: 1; display: flex; align-items: baseline; justify-content: space-between; }
   .head h2 { margin: 0; font-size: 22px; font-weight: 700; color: #c15f3c; }
   .dark .head h2 { color: #f2b18c; }
   .head .date { font-size: 11px; color: #999; }
-  .blocks { display: flex; gap: 14px; margin-top: 18px; }
+  .blocks { display: flex; gap: 14px; margin-top: 20px; }
   .block { flex: 1; border-radius: 14px; padding: 12px 14px; }
   .block .lb { font-size: 11px; font-weight: 500; color: #9a9a97; }
-  .block .vl { font-size: 17px; font-weight: 700; margin-top: 6px; }
+  .block .vl { font-size: 17px; font-weight: 700; margin-top: 6px; font-family: "SF Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+  .block .vl.sm { font-size: 14px; }
+  .block .vl.xs { font-size: 12px; }
   .b1 { background: rgba(193,95,60,.14); } .b1 .vl { color: #c15f3c; }
   .b2 { background: rgba(74,144,217,.14); } .b2 .vl { color: #4a90d9; }
   .b3 { background: rgba(16,185,129,.14); } .b3 .vl { color: #10b981; }
   .dark .b1 { background: rgba(242,177,140,.14); } .dark .b1 .vl { color: #f2b18c; }
-  .list-title { font-size: 13px; font-weight: 600; margin-top: 22px; }
+  .list-title { font-size: 13px; font-weight: 600; margin-top: 24px; }
   .sep { border-top: 1px solid #e4e4e2; margin: 8px 0 4px; }
   .dark .sep { border-color: #343437; }
   .row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
@@ -31,12 +36,12 @@
   .badge { width: 16px; height: 16px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; flex: none; }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
   .row .right { display: flex; gap: 12px; align-items: baseline; }
-  .row .tok { font-size: 11px; color: #9c9c9a; }
-  .row .cost { font-size: 12px; }
+  .row .tok { font-size: 11px; color: #9c9c9a; font-family: "SF Mono", Consolas, monospace; }
+  .row .cost { font-size: 12px; font-family: "SF Mono", Consolas, monospace; }
   .row.free .name, .row.free .cost { color: #10b981; font-weight: 600; }
-  .sub { font-size: 11px; color: #9c9c9a; margin: -2px 0 6px 16px; }
+  .sub { font-size: 11px; color: #9c9c9a; margin: -2px 0 6px 16px; font-family: "SF Mono", Consolas, monospace; }
   .freebanner { margin-top: 14px; background: rgba(16,185,129,.14); border-radius: 12px; padding: 9px 14px; color: #10b981; font-size: 12px; font-weight: 600; }
-  .foot { margin-top: 18px; font-size: 10px; color: #9c9c9a; }
+  .foot { margin-top: 18px; text-align: center; font-size: 10px; color: #9c9c9a; }
   .toggle { display: flex; gap: 8px; }
   .toggle button { border: 1px solid #ccc; background: #fff; border-radius: 8px; padding: 5px 14px; font-size: 12px; cursor: pointer; }
   .toggle button.on { background: #c15f3c; border-color: #c15f3c; color: #fff; }
@@ -110,12 +115,15 @@ function render(mode) {
   const totalText = Object.keys(data.totals).map((k) => money(data.totals[k], k)).join(' + ')
   card.innerHTML = `
     <div class="head">
-      <h2>DSH 费用统计</h2>
-      <span class="date">${data.at}</span>
+      <span class="brandlogo">D</span>
+      <span class="ht">
+        <h2>DSH 费用统计</h2>
+        <span class="date">${data.at}</span>
+      </span>
     </div>
     <div class="blocks">
-      <div class="block b1"><div class="lb">总 Tokens</div><div class="vl">${fmt(data.totalTokens)}</div></div>
-      <div class="block b2"><div class="lb">预估费用</div><div class="vl">${totalText.length > 16 ? totalText.slice(0,15) + '…' : totalText}</div></div>
+      <div class="block b1"><div class="lb">总 Tokens</div><div class="vl${(fmt(data.totalTokens).length > 8 ? ' sm' : '')}">${fmt(data.totalTokens)}</div></div>
+      <div class="block b2"><div class="lb">预估费用</div><div class="vl${totalText.length > 10 ? (totalText.length > 16 ? ' xs' : ' sm') : ''}">${totalText}</div></div>
       <div class="block b3"><div class="lb">缓存命中率</div><div class="vl">${data.hitRate}%</div></div>
     </div>
     <div class="list-title">分渠道明细</div>
