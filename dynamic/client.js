@@ -1807,7 +1807,7 @@ body[data-ds-dark-theme] .dsh-price-input {
                     rows.push(['缓存读', formatTokens(r100.readTokens) + ' tok'])
                     rows.push(['缓存写', formatTokens(r100.writeTokens) + ' tok'])
                     rows.push(['输出', formatTokens(r100.outputTokens) + ' tok'])
-                    rows.push(['请求数', String(r100.count)])
+                    // 修订 131：去掉「请求数」行——两窗口行数一致,切换不跳高
                   } else if (usageActive) {
                     rows.push(['未缓存输入', formatTokens(usage.uncachedInputTokens || 0) + ' tok'])
                     rows.push(['缓存读', formatTokens(usage.cacheReadTokens || 0) + ' tok'])
