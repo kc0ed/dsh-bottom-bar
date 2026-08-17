@@ -2,11 +2,10 @@
 
 DSH 底栏统计 + 预估费用插件:把聊天界面最底下那行统计接管过来,做成**能自己组装**的样子——想显示啥显示啥,还能拖拽排序,末尾缀一个**预估费用**,花钱心里有数。
 
-(截图是早期版本的,现在好看多了,意思到了就行。)
 
 <img width="500" alt="QQ_1786701111767" src="https://github.com/user-attachments/assets/92e20843-573f-4085-8853-c25aa44e3137" />
 <img width="500" alt="image" src="https://github.com/user-attachments/assets/93508b29-bbff-4a71-94f6-7cdb4e497ad5" />
-<img width="500" alt="image" src="https://github.com/user-attachments/assets/94d9764c-8115-430f-8ffd-b1a806a36c75" />
+<img width="500" alt="image" src="https://github.com/user-attachments/assets/bea9dd19-a70c-4d7c-a9a1-5df683a35d8c" />
 
 ## 安装
 
