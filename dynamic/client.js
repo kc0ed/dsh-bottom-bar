@@ -9,8 +9,29 @@
 return {
   inject: ['timer', 'locale', 'slots'],
 
-                
-    
+    var module = { exports: {} }
+    var exports = module.exports
+    Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
+    let React = require('react')
+
+    // ── 幂等样式注入（静态插件无 styles 符号） ──
+    function styles.insert(css) {
+      // 追加 + Set 去重（函数属性，避免顶层声明被生成器带进动态插件对象）：
+      // 多次调用不互相覆盖、重挂不重复追加
+      if (typeof document === 'undefined') return
+      if (insertCss.seen === undefined) insertCss.seen = new Set()
+      if (insertCss.seen.has(css)) return
+      insertCss.seen.add(css)
+      const tagId = 'dsh-bottom-bar'
+      let tag = document.querySelector('style[data-plugin-css="' + tagId + '"]')
+      if (tag === null) {
+        tag = document.createElement('style')
+        tag.dataset.pluginCss = tagId
+        document.head.appendChild(tag)
+      }
+      tag.textContent += css
+    }
+
     const LS_CFG_KEY = 'dsh-bottom-bar:config'
     const getLocalConfig = () => {
       try {
@@ -27,7 +48,8 @@ return {
       } catch (e) {}
     }
 
-    
+    const inject = ['slots', 'remote', 'locale', 'timer']
+
     async apply(ctx) {
       // 修订 36（静态包）：Remote contribution——host 侧 SRC 发现按方法名路由，
       // 客户端在 apply 里运行时 $mount 本 contribution（预构建的 dsh-api-remotes
@@ -1666,7 +1688,7 @@ body[data-ds-dark-theme] .dsh-price-input {
               ))
               nodes.push(React.createElement('div', { className: 'dsh-detail-row', key: 'ch' },
                 React.createElement('span', null, '适用渠道'),
-                React.createElement('span', null, '仅 DeepSeek 官方（deepseek）'),
+                React.createElement('span', null, Array.isArray(p.providers) && p.providers.length > 0 ? p.providers.join(', ') : '未配置'),
               ))
               return nodes
             }
@@ -2149,7 +2171,7 @@ body[data-ds-dark-theme] .dsh-price-input {
             // auto 识别时内联兼容比例,见 computePreviewPrice）。
             const VENDOR_TEMPLATES = [
               { id: 'auto', name: '⚡ 自动识别（默认）' },
-              { id: 'deepseek-v4', name: '🐳 DeepSeek V4', currency: 'CNY', out: 3, read: 0.0333, write: 0 },
+              { id: 'deepseek-v4', name: '🐳 DeepSeek V4', currency: 'USD', out: 3, read: 0.0318, write: 0 },
               { id: 'claude', name: '⚡ Claude', currency: 'USD', out: 5, read: 0.1, write: 1.25 },
               { id: 'openai-gpt5', name: '🧠 GPT-5.x', currency: 'USD', out: 6, read: 0.1, write: 1.25 },
               { id: 'gemini', name: '🌐 Gemini 3', currency: 'USD', out: 4, read: 0.25, write: 1.0 },
