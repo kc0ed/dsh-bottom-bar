@@ -1535,6 +1535,22 @@ body[data-ds-dark-theme] .dsh-price-input {
               }
             }, [props.sessionId, usage])
             const stats = React.useMemo(() => projected ?? deriveStats(settledNodes), [projected, settledNodes])
+            // 修订 128/129/130：最近 100 请求统计提升为组件级——host 增量优先
+            // (est.recent),回退客户端扫描;底栏吞吐/token 段与详情滑槽联动共用
+            let r100 = { count: 0, decodeMs: 0, outputTokens: 0, inTokens: 0, readTokens: 0, writeTokens: 0, ttftMs: null }
+            if (estimate !== null && estimate !== undefined && estimate.recent !== null && estimate.recent !== undefined && estimate.recent.count > 0) {
+              r100 = {
+                count: estimate.recent.count,
+                decodeMs: estimate.recent.decodeMs,
+                outputTokens: estimate.recent.outputTokens,
+                inTokens: estimate.recent.inTokens !== undefined ? estimate.recent.inTokens : 0,
+                readTokens: estimate.recent.readTokens !== undefined ? estimate.recent.readTokens : 0,
+                writeTokens: estimate.recent.writeTokens !== undefined ? estimate.recent.writeTokens : 0,
+                ttftMs: estimate.recent.ttftMs,
+              }
+            } else {
+              r100 = requestStatsOf(settledNodes, 100)
+            }
             const usageActive = usage !== null && usage !== undefined && (billedInputTokens(usage) > 0 || usage.outputTokens > 0)
             const cacheHitPct = usageActive ? cacheHitPercent(usage) : null
             // 修订 33：删除 liveDelta——修订 30-32 对账已把账本拉平到客户端全量，
@@ -1546,14 +1562,30 @@ body[data-ds-dark-theme] .dsh-price-input {
               llm: () => stats.llmMs > 0 ? t('stats.llm', { duration: formatDuration(stats.llmMs) }) : null,
               toolCall: () => stats.toolMs > 0 ? t('stats.toolCall', { duration: formatDuration(stats.toolMs) }) : null,
               ttft: () => stats.ttftSteps > 0 ? t('stats.ttftAverage', { duration: formatDuration(stats.ttftMs / stats.ttftSteps) }) : null,
-              throughput: () => stats.decodeMs > 0 ? t('stats.tokensPerSecond', { throughput: formatTokensPerSecond(stats.decodeTokens / (stats.decodeMs / 1e3)) }) : null,
+              throughput: () => {
+                // 修订 130：底栏吞吐跟随详情滑槽——「最近 100」窗口显示近100平均
+                if (tputWin === 1 && r100.count > 0 && r100.decodeMs > 0) {
+                  return t('stats.tokensPerSecond', { throughput: formatTokensPerSecond(r100.outputTokens / (r100.decodeMs / 1e3)) })
+                }
+                return stats.decodeMs > 0 ? t('stats.tokensPerSecond', { throughput: formatTokensPerSecond(stats.decodeTokens / (stats.decodeMs / 1e3)) }) : null
+              },
               cacheHit: () => usageActive && (separate ? (usage.cacheReadTokens || 0) > 0 : cacheHitPct !== null)
                 ? (separate ? tb('cacheHit', { tokens: formatTokens(usage.cacheReadTokens) }) : t('stats.cacheHit', { percent: cacheHitPct }))
                 : null,
-              tokens: () => usageActive ? tb('input', {
-                input: formatTokens(separate ? (usage.uncachedInputTokens || 0) + (usage.cacheWriteTokens || 0) : billedInputTokens(usage)),
-                output: formatTokens(usage.outputTokens || 0),
-              }) : null,
+              tokens: () => {
+                if (!usageActive) return null
+                // 修订 130：底栏 token 跟随详情滑槽——「最近 100」窗口显示近100各桶
+                if (tputWin === 1 && r100.count > 0) {
+                  return tb('input', {
+                    input: formatTokens(separate ? r100.inTokens - r100.readTokens : r100.inTokens),
+                    output: formatTokens(r100.outputTokens),
+                  })
+                }
+                return tb('input', {
+                  input: formatTokens(separate ? (usage.uncachedInputTokens || 0) + (usage.cacheWriteTokens || 0) : billedInputTokens(usage)),
+                  output: formatTokens(usage.outputTokens || 0),
+                })
+              },
               cost: () => {
                 if (estimate === null) return usageActive ? '计算中…' : null
                 return costGroup(estimate, precision, null)
@@ -1735,14 +1767,6 @@ body[data-ds-dark-theme] .dsh-price-input {
               if (panelPlacement === 'top' && !fitsAbove && fitsBelow) setPanelPlacement('bottom')
             }, [panelPlacement, panelPos, detailSeg])
             const segDetailRows = (segId) => {
-              // 修订 128/129：最近 100 次请求统计(host 增量优先,回退客户端扫描),
-              // 吞吐与 tokens 明细共用
-              let r100 = { count: 0, decodeMs: 0, outputTokens: 0, inTokens: 0, readTokens: 0, writeTokens: 0, ttftMs: null }
-              if (estimate !== null && estimate !== undefined && estimate.recent !== null && estimate.recent !== undefined && estimate.recent.count > 0) {
-                r100 = { count: estimate.recent.count, decodeMs: estimate.recent.decodeMs, outputTokens: estimate.recent.outputTokens, inTokens: estimate.recent.inTokens !== undefined ? estimate.recent.inTokens : 0, readTokens: estimate.recent.readTokens !== undefined ? estimate.recent.readTokens : 0, writeTokens: estimate.recent.writeTokens !== undefined ? estimate.recent.writeTokens : 0, ttftMs: estimate.recent.ttftMs }
-              } else {
-                r100 = requestStatsOf(settledNodes, 100)
-              }
               switch (segId) {
                 case 'counts': return [['轮数', String(stats.turns)], ['步数', String(stats.steps)]]
                 case 'llm': return [['LLM 总时长', formatDuration(stats.llmMs)], ['步数', String(stats.steps)], ['平均每步', stats.steps > 0 ? formatDuration(stats.llmMs / stats.steps) : '—']]
