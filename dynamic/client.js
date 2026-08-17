@@ -1733,7 +1733,14 @@ body[data-ds-dark-theme] .dsh-price-input {
                 case 'toolCall': return [['工具调用总时长', formatDuration(stats.toolMs)]]
                 case 'ttft': return [['首 token 总耗时', formatDuration(stats.ttftMs)], ['步数', String(stats.ttftSteps)], ['平均', stats.ttftSteps > 0 ? formatDuration(stats.ttftMs / stats.ttftSteps) : '—']]
                 case 'throughput': {
-                  const r100 = requestStatsOf(settledNodes, 100)
+                  // 修订 128：优先用 host 增量统计(环形100+和值,零全量重扫),
+                  // 无数据时回退客户端扫描
+                  let r100 = null
+                  if (estimate !== null && estimate !== undefined && estimate.recent !== null && estimate.recent !== undefined && estimate.recent.count > 0) {
+                    r100 = { count: estimate.recent.count, decodeMs: estimate.recent.decodeMs, outputTokens: estimate.recent.outputTokens, ttftMs: estimate.recent.ttftMs }
+                  } else {
+                    r100 = requestStatsOf(settledNodes, 100)
+                  }
                   // 修订 126：统计窗口滑槽——「全部 / 最近 100」切换,数据跟随
                   const isRecent = tputWin === 1
                   const win = isRecent
