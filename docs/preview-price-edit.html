@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>dsh-bottom-bar · 价格表详细编辑(弹层)预览</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; background: #e9e9e7; margin: 0; padding: 32px 20px; display: flex; flex-direction: column; gap: 18px; align-items: center; }
+  h1 { font-size: 18px; color: #333; margin: 0; }
+  .note { font-size: 12px; color: #888; max-width: 800px; text-align: center; line-height: 1.8; }
+  .note b { color: #c15f3c; }
+  .toggle { display: flex; gap: 8px; }
+  .toggle button { border: 1px solid #ccc; background: #fff; border-radius: 8px; padding: 5px 14px; font-size: 12px; cursor: pointer; color: #333; }
+  .toggle button.on { background: #c15f3c; border-color: #c15f3c; color: #fff; }
+
+  .panel { width: 820px; border-radius: 18px; box-sizing: border-box; }
+  .panel.light { background: #fdfdfb; color: #22221f; box-shadow: 0 10px 34px rgba(0,0,0,.09); border: 1px solid #eceae8; }
+  .panel.dark { background: #19191c; color: #eaeae8; box-shadow: 0 10px 34px rgba(0,0,0,.4); border: 1px solid #2a2a2e; }
+
+  .price-head { display: flex; align-items: center; gap: 10px; padding: 16px 20px 0; }
+  .price-head .t { font-size: 14px; font-weight: 700; }
+  .price-head .s { font-size: 11px; color: #9c9c9a; margin-left: auto; font-family: "SF Mono", Consolas, monospace; }
+
+  .bigtabs { display: flex; gap: 2px; padding: 12px 20px 0; border-bottom: 1px solid #e4e4e2; }
+  .dark .bigtabs { border-bottom-color: #343437; }
+  .bigtab { position: relative; border: none; background: transparent; color: #9c9c9a; font-size: 13px; font-weight: 600; line-height: 20px; padding: 7px 16px; cursor: default; }
+  .bigtab.on { color: #c15f3c; }
+  .dark .bigtab.on { color: #f2b18c; }
+  .bigtab.on::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: 2px; background: #c15f3c; }
+  .dark .bigtab.on::after { background: #f2b18c; }
+
+  .tabbody { padding: 16px 20px 20px; }
+  .toolrow { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .toolrow .lb { font-size: 12px; color: #9c9c9a; flex: 1; }
+  .seg { display: inline-flex; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; background: #fff; color: #666; font-size: 11.5px; line-height: 18px; padding: 4px 12px; cursor: pointer; white-space: nowrap; }
+  .seg button.on { background: rgba(193,95,60,.12); color: #c15f3c; font-weight: 600; }
+  .dark .seg { border-color: #3a3a3e; }
+  .dark .seg button { background: #26262a; color: #bbb; }
+  .dark .seg button.on { background: rgba(242,177,140,.14); color: #f2b18c; }
+
+  .group { font-size: 11px; font-weight: 600; letter-spacing: .03em; color: #9c9c9a; text-transform: uppercase; margin: 12px 0 6px; }
+  .tbl-head, .tbl-row { display: flex; align-items: center; gap: 6px; padding: 4px 8px; }
+  .tbl-head { font-size: 10.5px; color: #9c9c9a; border-radius: 8px; }
+  .light .tbl-head { background: rgba(0,0,0,.035); }
+  .dark .tbl-head { background: rgba(255,255,255,.05); }
+  .tbl-row { border-bottom: 1px dashed rgba(0,0,0,.06); padding: 6px 8px; }
+  .dark .tbl-row { border-bottom-color: rgba(255,255,255,.07); }
+  .mcol { flex: 1; min-width: 0; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ccol { width: 44px; font-size: 11px; color: #9c9c9a; text-align: center; }
+  .pcol { width: 62px; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; }
+  .pcol input { width: 58px; box-sizing: border-box; font-size: 12px; font-variant-numeric: tabular-nums; padding: 3px 6px; border-radius: 7px; border: 1px solid #ccc; background: #fff; color: #333; outline: none; text-align: right; }
+  .dark .pcol input { background: #26262a; border-color: #3a3a3e; color: #eaeae8; }
+  .pcol input:focus { border-color: #c15f3c; box-shadow: 0 0 0 2px rgba(193,95,60,.18); }
+  .pcol input[readonly] { background: transparent; border-color: transparent; cursor: pointer; }
+  .dark .pcol input[readonly] { background: transparent; }
+  .pcol .pv { width: 58px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; padding: 4px 2px; color: #333; }
+  .dark .pcol .pv { color: #eaeae8; }
+  .pcol .rc { font-size: 9px; line-height: 11px; color: #9c9c9a; opacity: .8; font-family: "SF Mono", Consolas, monospace; white-space: nowrap; }
+  .pcol .rc.base { color: #c15f3c; opacity: .9; }
+  .dark .pcol .rc.base { color: #f2b18c; }
+  .bcol { width: 56px; text-align: center; }
+  .bcol .locktag { font-size: 9.5px; color: #c15f3c; background: rgba(193,95,60,.1); border-radius: 999px; padding: 1px 6px; }
+  .editbtn { border: 1px solid #ccc; background: transparent; color: #666; font-size: 11px; padding: 3px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+  .editbtn:hover { border-color: #c15f3c; color: #c15f3c; }
+  .dark .editbtn { border-color: #3a3a3e; color: #bbb; }
+  .dark .editbtn:hover { border-color: #f2b18c; color: #f2b18c; }
+
+  /* ── 弹层 ── */
+  .mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .mask.open { display: flex; }
+  .modal { width: 540px; max-height: 86vh; overflow: auto; border-radius: 16px; padding: 18px 20px; box-sizing: border-box; }
+  .modal.light { background: #fdfdfb; color: #22221f; box-shadow: 0 24px 60px rgba(0,0,0,.35); border: 1px solid #eceae8; }
+  .modal.dark { background: #1c1c1f; color: #eaeae8; box-shadow: 0 24px 60px rgba(0,0,0,.6); border: 1px solid #2a2a2e; }
+  .m-head { display: flex; align-items: center; gap: 8px; }
+  .m-head .mt { font-size: 14px; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "SF Mono", Consolas, monospace; }
+  .srcbadge { font-size: 10px; font-weight: 600; color: #4a90d9; background: rgba(74,144,217,.12); border-radius: 999px; padding: 1px 8px; }
+  .srcbadge.global { color: #10b981; background: rgba(16,185,129,.12); }
+  .srcbadge.builtin { color: #9c9c9a; background: rgba(0,0,0,.06); }
+  .dark .srcbadge.builtin { background: rgba(255,255,255,.08); }
+  .m-sec { margin-top: 14px; }
+  .m-sec-t { font-size: 11px; font-weight: 600; letter-spacing: .04em; color: #9c9c9a; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .cell { display: flex; flex-direction: column; align-items: stretch; gap: 3px; }
+  .cell .cl { font-size: 10.5px; color: #9c9c9a; }
+  .cell input { font-size: 13px; font-variant-numeric: tabular-nums; padding: 6px 8px; border-radius: 9px; border: 1px solid #ccc; background: #fff; color: #333; outline: none; width: 100%; box-sizing: border-box; text-align: right; }
+  .dark .cell input { background: #26262a; border-color: #3a3a3e; color: #eaeae8; }
+  .cell input:focus { border-color: #c15f3c; box-shadow: 0 0 0 2px rgba(193,95,60,.18); }
+  .cell .cr { font-size: 9.5px; color: #9c9c9a; font-family: "SF Mono", Consolas, monospace; text-align: right; height: 12px; }
+  .cell .cr.base { color: #c15f3c; }
+  .dark .cell .cr.base { color: #f2b18c; }
+  .ratiotool { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; }
+  .light .ratiotool { background: rgba(0,0,0,.035); }
+  .dark .ratiotool { background: rgba(255,255,255,.05); }
+  .ratiotool .cur { font-size: 12px; font-family: "SF Mono", Consolas, monospace; color: #666; flex: 1; min-width: 140px; }
+  .dark .ratiotool .cur { color: #bbb; }
+  .btn { border: 1px solid #ccc; background: #fff; color: #555; font-size: 12px; padding: 5px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .btn:hover { border-color: #c15f3c; color: #c15f3c; }
+  .dark .btn { background: #26262a; border-color: #3a3a3e; color: #bbb; }
+  .dark .btn:hover { border-color: #f2b18c; color: #f2b18c; }
+  .btn.primary { background: #c15f3c; border-color: #c15f3c; color: #fff; }
+  .btn.primary:hover { opacity: .9; color: #fff; border-color: #c15f3c; }
+  .btn.danger { color: #d9534f; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .lockswitch { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #9c9c9a; cursor: pointer; user-select: none; }
+  .lockswitch .track { width: 30px; height: 17px; border-radius: 999px; background: #ccc; position: relative; transition: background .15s ease; }
+  .lockswitch .knob { position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; transition: left .15s ease; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .lockswitch.on .track { background: #c15f3c; }
+  .dark .lockswitch.on .track { background: #f2b18c; }
+  .lockswitch.on .knob { left: 15px; }
+  .lockswitch .txt { color: #555; font-size: 11.5px; }
+  .dark .lockswitch .txt { color: #bbb; }
+  .peaktoggle { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: #c15f3c; font-weight: 600; }
+  .peakbody { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .22s cubic-bezier(.2,.9,.3,1), opacity .18s ease; }
+  .peakbody.open { grid-template-rows: 1fr; opacity: 1; }
+  .peakbody > div { overflow: hidden; min-height: 0; }
+  .peakbody .inner { padding-top: 10px; }
+  .m-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,.08); }
+  .dark .m-foot { border-top-color: rgba(255,255,255,.1); }
+  .m-foot .l { display: flex; gap: 8px; }
+  .m-foot .r { display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+<h1>dsh-bottom-bar · 价格表「详细编辑弹层」预览</h1>
+<div class="note">行内形态可切换:<b>只读+编辑按钮</b>(荐) 或 行内编辑+按钮。点「编辑」打开弹层:单独改过其他桶 → <b>↻ 按原比例同步</b>;或开 <b>🔒 锁定比例</b>(单模型持久)输入价改动即自动派生。峰谷价手风琴同款。</div>
+<div class="toggle" id="tg">
+  <button data-m="light" class="on">浅色</button>
+  <button data-m="dark">深色</button>
+</div>
+
+<div id="sheet"></div>
+<div class="mask" id="mask"><div class="modal" id="modal"></div></div>
+
+<script>
+let mode = 'light'
+let rowStyle = 'readonly' // 'readonly' | 'inline'
+let rows = [
+  { model: 'opencode-go/deepseek-v4-flash', cur: 'CNY', src: 'channel', in: 1, cr: 0.02, cw: 0, out: 2, peak: { in: 0.44, cr: 0.014, cw: 0, out: 1.32 }, lock: false },
+  { model: 'opencode-go/glm-5.2', cur: 'CNY', src: 'channel', in: 8, cr: 1.6, cw: 8, out: 28, peak: null, lock: false },
+  { model: 'opencode/deepseek-v4-flash-free', cur: 'CNY', src: 'channel', in: 1, cr: 0.02, cw: 0, out: 2, peak: null, lock: true },
+  { model: 'deepseek-v4-pro', cur: 'USD', src: 'global', in: 0.66, cr: 1.98, cw: 0.022, out: 0, peak: null, lock: false },
+]
+const NUM = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
+const fmt = (v) => { const r = Math.round(v * 10000) / 10000; return String(r) }
+const ratio = (inN, v) => (inN > 0 && Number.isFinite(v)) ? (Math.round((v / inN) * 10000) / 10000) + 'x' : ''
+const money = (v, c) => (c === 'USD' ? '$' : '¥') + (Math.round(v * 100) / 100).toFixed(2)
+const srcTxt = { channel: '渠道特选', global: '全局默认', builtin: '内置' }
+
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;') }
+
+function cap(label, v, base) {
+  return '<span class="pcol"><span class="pv">' + fmt(v) + '</span><span class="rc' + (base ? ' base' : '') + '">' + ratio(NUM((base ? v : null)), null) + '</span></span>'
+}
+
+function tableHead() {
+  return '<div class="tbl-head"><span class="mcol">模型</span><span class="ccol">币种</span>' +
+    '<span class="pcol" style="width:66px">输入</span><span class="pcol" style="width:66px">缓存读</span><span class="pcol" style="width:66px">缓存写</span><span class="pcol" style="width:66px">输出</span>' +
+    '<span class="bcol" style="width:70px"></span></div>'
+}
+
+function rowHTML(r, i) {
+  const peaktag = r.peak ? '<span style="color:#c15f3c;font-weight:700;margin-left:4px">⛰</span>' : ''
+  const locktag = r.lock ? '<span class="locktag">🔒 锁定比例</span>' : ''
+  const cells = [
+    ['输入', r.in, true],
+    ['缓存读', r.cr, false],
+    ['缓存写', r.cw, false],
+    ['输出', r.out, false],
+  ].map(([lb, v, base]) =>
+    rowStyle === 'inline'
+      ? '<span class="pcol"><input type="number" step="0.01" data-i="' + i + '" data-k="' + lb + '" value="' + v + '"><span class="rc' + (base ? ' base' : '') + '" data-rc="' + lb + '">' + ratio(r.in, v) + '</span></span>'
+      : '<span class="pcol"><span class="pv">' + fmt(v) + '</span><span class="rc' + (base ? ' base' : '') + '">' + (base ? '1x' : ratio(r.in, v)) + '</span></span>'
+  ).join('')
+  return '<div class="tbl-row">' +
+    '<span class="mcol" title="' + esc(r.model) + '">' + esc(r.model) + peaktag + ' ' + locktag + '</span>' +
+    '<span class="ccol">' + r.cur + '</span>' + cells +
+    '<span class="bcol"><button class="editbtn" data-i="' + i + '">编辑</button></span></div>'
+}
+
+function renderTable() {
+  const body = document.querySelector('#tbl')
+  const grouped = [['渠道特选（只覆盖这个渠道）', rows.filter((r) => r.src === 'channel')], ['全局默认（所有渠道通用）', rows.filter((r) => r.src === 'global')]]
+  body.innerHTML = grouped.map(([g, list]) => list.length === 0 ? '' : '<div class="group">' + g + '</div>' + tableHead() + list.map((r, i) => rowHTML(r, rows.indexOf(r))).join('')).join('')
+  body.querySelectorAll('.editbtn').forEach((b) => b.addEventListener('click', () => openModal(Number(b.dataset.i))))
+  if (rowStyle === 'inline') {
+    body.querySelectorAll('.tbl-row input').forEach((inp) => {
+      inp.addEventListener('input', () => {
+        const r = rows[Number(inp.dataset.i)]
+        const k = inp.dataset.k
+        r[k === '输入' ? 'in' : (k === '缓存读' ? 'cr' : k === '缓存写' ? 'cw' : 'out')] = NUM(inp.value)
+        // 只更新该行比例小字(不重建,保持焦点)
+        const rc = inp.closest('.pcol').querySelector('.rc')
+        const inV = r.in
+        if (k === '输入') rc.textContent = '1x'
+        else rc.textContent = ratio(inV, r[k === '缓存读' ? 'cr' : k === '缓存写' ? 'cw' : 'out'])
+        const base = inp.closest('.pcol').querySelector('.rc.base')
+        // 输入框变化时同步其他行内 caption(简单起见只更新本单元格)
+      })
+    })
+  }
+}
+
+function modalHTML(r) {
+  const q4 = (lb, k, v, base) => '<div class="cell"><span class="cl">' + lb + '</span><input type="number" step="0.01" data-k="' + k + '" value="' + v + '"><span class="cr' + (base ? ' base' : '') + '" data-rc="' + k + '">' + (base ? '1x' : ratio(r.in, v)) + '</span></div>'
+  const pkTools = (pk) => pk === null ? '' :
+    '<div class="ratiotool" style="margin-top:10px">' +
+    '<span class="cur">读 ' + ratio(pk.in, pk.cr) + ' · 写 ' + ratio(pk.in, pk.cw) + ' · 出 ' + ratio(pk.in, pk.out) + '</span>' +
+    '<button class="btn" data-pk="scale">↻ 按原比例同步</button>' +
+    '<span class="lockswitch' + (pk.locked ? ' on' : '') + '" data-pk="lock"><span class="track"><span class="knob"></span></span><span class="txt">🔒 锁定比例</span></span>' +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:2px;margin-top:6px;font-size:10.5px;color:#9c9c9a">' +
+    '<span>↻ 单独改过高峰桶?点它按原比例重新对齐当前高峰输入</span>' +
+    '<span>🔒 开启:高峰输入改动时其余高峰桶自动跟随</span>' +
+    '</div>'
+  const peakHTML = '<div class="m-sec">' +
+    '<div class="m-sec-t" data-pk="open" style="cursor:pointer;padding:6px 8px;border-radius:8px">' +
+    '<span class="peaktoggle">' + (r.peak !== null ? '▾' : '▸') + '</span> 峰谷价' +
+    '<span style="margin-left:auto;font-weight:400;text-transform:none;letter-spacing:0;font-size:10.5px;color:#9c9c9a">' + (r.peak === null ? '未设置 · 点击展开新增' : '点击收起') + '</span>' +
+    '</div>' +
+    (r.peak === null ? '' :
+      '<div class="peakbody open"><div><div class="inner">' +
+      '<div class="grid4">' +
+      '<div class="cell"><span class="cl">高峰输入</span><input type="number" step="0.01" data-k="pk.in" value="' + r.peak.in + '"><span class="cr base" data-rc="pk.in">1x</span></div>' +
+      '<div class="cell"><span class="cl">高峰缓存读</span><input type="number" step="0.01" data-k="pk.cr" value="' + r.peak.cr + '"><span class="cr" data-rc="pk.cr">' + ratio(r.peak.in, r.peak.cr) + '</span></div>' +
+      '<div class="cell"><span class="cl">高峰缓存写</span><input type="number" step="0.01" data-k="pk.cw" value="' + r.peak.cw + '"><span class="cr" data-rc="pk.cw">' + ratio(r.peak.in, r.peak.cw) + '</span></div>' +
+      '<div class="cell"><span class="cl">高峰输出</span><input type="number" step="0.01" data-k="pk.out" value="' + r.peak.out + '"><span class="cr" data-rc="pk.out">' + ratio(r.peak.in, r.peak.out) + '</span></div>' +
+      '</div>' + pkTools(r.peak) +
+      '<div style="margin-top:8px;text-align:right"><button class="btn danger" data-pk="clear">清除峰谷价</button></div>' +
+      '</div></div></div>') +
+    '</div>'
+  return '<div class="m-head"><span class="mt">' + esc(r.model) + '</span><span class="srcbadge ' + r.src + '">' + srcTxt[r.src] + '</span></div>' +
+    '<div class="m-sec"><div class="m-sec-t">币种</div><div class="seg" id="mcur">' +
+    ['CNY', 'USD'].map((c) => '<button data-c="' + c + '" class="' + (r.cur === c ? 'on' : '') + '">' + c + '</button>').join('') +
+    '</div></div>' +
+    '<div class="m-sec"><div class="m-sec-t">单价（每 1M tokens）</div><div class="grid4">' +
+    q4('输入', 'in', r.in, true) + q4('缓存读', 'cr', r.cr, false) + q4('缓存写', 'cw', r.cw, false) + q4('输出', 'out', r.out, false) +
+    '</div></div>' +
+    '<div class="m-sec"><div class="m-sec-t">比例同步</div><div class="ratiotool">' +
+    '<span class="cur" data-cur="ratio">读 ' + ratio(r.in, r.cr) + ' · 写 ' + ratio(r.in, r.cw) + ' · 出 ' + ratio(r.in, r.out) + '</span>' +
+    '<button class="btn" data-act="scale">↻ 按原比例同步</button>' +
+    '<span class="lockswitch' + (r.lock ? ' on' : '') + '" data-act="lock"><span class="track"><span class="knob"></span></span><span class="txt">🔒 锁定比例</span></span>' +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:2px;margin-top:6px;font-size:10.5px;color:#9c9c9a">' +
+    '<span>↻ 单独改过其他桶?点它按原比例重新对齐当前输入价</span>' +
+    '<span>🔒 开启:输入价改动时其余桶自动跟随;关闭:自由编辑</span>' +
+    '</div></div>' +
+    peakHTML +
+    '<div class="m-foot"><span class="l"><button class="btn danger" data-act="del">删除</button>' +
+    (r.src === 'builtin' ? '<button class="btn" data-act="reset">恢复默认</button>' : '') + '</span>' +
+    '<span class="r"><button class="btn" data-act="cancel">取消</button><button class="btn primary" data-act="save">保存</button></span></div>'
+}
+
+let wk = null      // 工作副本
+let lockRatio = null // 锁定时的比例 {cr,cw,out}
+let prevIn = null   // 本次弹层打开时的输入价(用于「按原比例更新」)
+let pkPrevIn = 0
+let pkLockRatio = null
+let modalIdx = -1
+
+function openModal(i) {
+  modalIdx = i
+  wk = JSON.parse(JSON.stringify(rows[i]))
+  lockRatio = { cr: wk.cr / wk.in, cw: wk.cw / wk.in, out: wk.out / wk.in }
+  prevIn = wk.in
+  pkPrevIn = wk.peak !== null ? wk.peak.in : 0
+  pkLockRatio = wk.peak !== null && wk.peak.in > 0 ? { cr: (wk.peak.cr || 0) / wk.peak.in, cw: (wk.peak.cw || 0) / wk.peak.in, out: wk.peak.out / wk.peak.in } : null
+  document.querySelector('#modal').innerHTML = modalHTML(wk)
+  document.querySelector('#modal').className = 'modal ' + mode
+  document.querySelector('#mask').classList.add('open')
+  bindModal()
+}
+
+function refreshModal() {
+  const m = document.querySelector('#modal')
+  m.querySelectorAll('.cell input').forEach((inp) => {
+    const k = inp.dataset.k
+    const v = k === 'in' ? wk.in : k === 'cr' ? wk.cr : k === 'cw' ? wk.cw : k === 'out' ? wk.out : k === 'pk.in' ? (wk.peak ? wk.peak.in : 0) : k === 'pk.cr' ? (wk.peak ? wk.peak.cr : 0) : k === 'pk.cw' ? (wk.peak ? wk.peak.cw : 0) : k === 'pk.out' ? (wk.peak ? wk.peak.out : 0) : 0
+    if (String(inp.value) !== String(v)) inp.value = v
+  })
+  m.querySelectorAll('.cell .cr').forEach((el) => {
+    const k = el.dataset.rc
+    if (k === 'in') el.textContent = '1x'
+    else if (k === 'pk.in') el.textContent = '1x'
+    else {
+      const isPk = k.indexOf('pk.') === 0
+      const inN = isPk ? (wk.peak ? wk.peak.in : 0) : wk.in
+      const v = isPk ? (k === 'pk.cr' ? (wk.peak ? wk.peak.cr : 0) : k === 'pk.cw' ? (wk.peak ? wk.peak.cw : 0) : (wk.peak ? wk.peak.out : 0)) : (k === 'cr' ? wk.cr : k === 'cw' ? wk.cw : wk.out)
+      el.textContent = ratio(inN, v)
+    }
+  })
+  const rcEl = m.querySelector('[data-cur="ratio"]')
+  if (rcEl) rcEl.textContent = '读 ' + ratio(wk.in, wk.cr) + ' · 写 ' + ratio(wk.in, wk.cw) + ' · 出 ' + ratio(wk.in, wk.out)
+  const pkLs = m.querySelector('[data-pk="lock"]')
+  if (pkLs) pkLs.classList.toggle('on', wk.peak !== null && wk.peak.locked === true)
+  const pkCur = m.querySelector('.peakbody .cur')
+  if (pkCur && wk.peak !== null) pkCur.textContent = '读 ' + ratio(wk.peak.in, wk.peak.cr) + ' · 写 ' + ratio(wk.peak.in, wk.peak.cw) + ' · 出 ' + ratio(wk.peak.in, wk.peak.out)
+  const ls = m.querySelector('[data-act="lock"]')
+  if (ls) ls.classList.toggle('on', wk.lock === true)
+  m.querySelectorAll('#mcur button').forEach((b) => b.classList.toggle('on', b.dataset.c === wk.cur))
+}
+
+function bindModal() {
+  const m = document.querySelector('#modal')
+  m.querySelectorAll('#mcur button').forEach((b) => b.addEventListener('click', () => { wk.cur = b.dataset.c; refreshModal() }))
+  m.querySelectorAll('.cell input').forEach((inp) => {
+    inp.addEventListener('input', () => {
+      const k = inp.dataset.k
+      const v = NUM(inp.value)
+      const isPk = k.indexOf('pk.') === 0
+      if (isPk) {
+        if (!wk.peak) wk.peak = { in: 0, cr: 0, cw: 0, out: 0 }
+        if (k === 'pk.in') {
+          wk.peak.in = v
+          if (wk.peak.locked === true && pkLockRatio) {
+            wk.peak.cr = Math.round(pkLockRatio.cr * v * 1000) / 1000
+            wk.peak.cw = Math.round(pkLockRatio.cw * v * 1000) / 1000
+            wk.peak.out = Math.round(pkLockRatio.out * v * 1000) / 1000
+          }
+        } else if (k === 'pk.cr') { wk.peak.cr = v; if (wk.peak.locked === true && pkLockRatio && wk.peak.in > 0) pkLockRatio.cr = v / wk.peak.in }
+        else if (k === 'pk.cw') { wk.peak.cw = v; if (wk.peak.locked === true && pkLockRatio && wk.peak.in > 0) pkLockRatio.cw = v / wk.peak.in }
+        else if (k === 'pk.out') { wk.peak.out = v; if (wk.peak.locked === true && pkLockRatio && wk.peak.in > 0) pkLockRatio.out = v / wk.peak.in }
+      } else if (k === 'in') {
+        wk.in = v
+        if (wk.lock && lockRatio) {
+          wk.cr = Math.round(lockRatio.cr * v * 1000) / 1000
+          wk.cw = Math.round(lockRatio.cw * v * 1000) / 1000
+          wk.out = Math.round(lockRatio.out * v * 1000) / 1000
+        }
+      } else if (k === 'cr') { wk.cr = v; if (wk.lock && lockRatio) lockRatio.cr = v / wk.in }
+      else if (k === 'cw') { wk.cw = v; if (wk.lock && lockRatio) lockRatio.cw = v / wk.in }
+      else if (k === 'out') { wk.out = v; if (wk.lock && lockRatio) lockRatio.out = v / wk.in }
+      refreshModal()
+    })
+  })
+  m.querySelector('[data-act="scale"]').addEventListener('click', () => {
+    // 按弹层打开时的比例还原:其余桶 = 原比例 × 当前输入
+    wk.cr = Math.round((wk.cr / prevIn) * wk.in * 1000) / 1000
+    wk.cw = Math.round((wk.cw / prevIn) * wk.in * 1000) / 1000
+    wk.out = Math.round((wk.out / prevIn) * wk.in * 1000) / 1000
+    prevIn = wk.in
+    refreshModal()
+  })
+  m.querySelector('[data-act="lock"]').addEventListener('click', () => {
+    wk.lock = !wk.lock
+    if (wk.lock) lockRatio = { cr: wk.cr / wk.in, cw: wk.cw / wk.in, out: wk.out / wk.in }
+    refreshModal()
+  })
+  const pkToggle = m.querySelector('[data-pk="open"]')
+  if (pkToggle) pkToggle.addEventListener('click', () => {
+    const body = m.querySelector('.peakbody')
+    if (body) { body.classList.toggle('open'); pkToggle.querySelector('.peaktoggle').textContent = body.classList.contains('open') ? '▾' : '▸' }
+  })
+  const pkScale = m.querySelector('[data-pk="scale"]')
+  if (pkScale) pkScale.addEventListener('click', () => {
+    if (wk.peak === null || pkPrevIn === 0) return
+    const k = wk.peak.in / pkPrevIn
+    wk.peak.cr = wk.peak.cr === null ? null : Math.round(wk.peak.cr * k * 1000) / 1000
+    wk.peak.cw = wk.peak.cw === null ? null : Math.round(wk.peak.cw * k * 1000) / 1000
+    wk.peak.out = Math.round(wk.peak.out * k * 1000) / 1000
+    pkPrevIn = wk.peak.in
+    refreshModal()
+  })
+  const pkLock = m.querySelector('[data-pk="lock"]')
+  if (pkLock) pkLock.addEventListener('click', () => {
+    if (wk.peak === null) return
+    wk.peak.locked = !(wk.peak.locked === true)
+    if (wk.peak.locked && wk.peak.in > 0) pkLockRatio = { cr: (wk.peak.cr || 0) / wk.peak.in, cw: (wk.peak.cw || 0) / wk.peak.in, out: wk.peak.out / wk.peak.in }
+    refreshModal()
+  })
+  const pkClear = m.querySelector('[data-pk="clear"]')
+  if (pkClear) pkClear.addEventListener('click', () => { wk.peak = null; document.querySelector('#modal').innerHTML = modalHTML(wk); bindModal() })
+  m.querySelector('[data-act="cancel"]').addEventListener('click', closeModal)
+  m.querySelector('[data-act="save"]').addEventListener('click', () => {
+    rows[modalIdx] = wk
+    renderTable()
+    closeModal()
+  })
+  const del = m.querySelector('[data-act="del"]')
+  if (del) del.addEventListener('click', () => { rows.splice(modalIdx, 1); renderTable(); closeModal() })
+}
+
+function closeModal() { document.querySelector('#mask').classList.remove('open'); modalIdx = -1; wk = null }
+
+function render(m) {
+  mode = m
+  const sheet = document.getElementById('sheet')
+  const panel = document.createElement('div')
+  panel.className = 'panel ' + m
+  panel.innerHTML =
+    '<div class="price-head"><span class="t">价格设置</span><span class="s">价格区 · 价格表(编辑弹层)</span></div>' +
+    '<div class="bigtabs"><span class="bigtab on">价格表</span><span class="bigtab">新增价格</span><span class="bigtab">厂商</span></div>' +
+    '<div class="tabbody">' +
+    '<div class="toolrow"><span class="lb">行内形态(演示切换;弹层编辑是共同入口)</span>' +
+    '<span class="seg" id="rownav">' +
+    '<button data-s="readonly" class="' + (rowStyle === 'readonly' ? 'on' : '') + '">只读+编辑按钮</button>' +
+    '<button data-s="inline" class="' + (rowStyle === 'inline' ? 'on' : '') + '">行内编辑</button>' +
+    '</span></div>' +
+    '<div id="tbl"></div>' +
+    '</div>'
+  sheet.innerHTML = ''
+  sheet.appendChild(panel)
+  panel.querySelectorAll('#rownav button').forEach((b) => b.addEventListener('click', () => { rowStyle = b.dataset.s; render(mode) }))
+  renderTable()
+}
+
+document.getElementById('tg').addEventListener('click', (e) => {
+  const b = e.target.closest('button')
+  if (!b) return
+  document.querySelectorAll('#tg button').forEach((x) => x.classList.remove('on'))
+  b.classList.add('on')
+  render(b.dataset.m)
+})
+document.getElementById('mask').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal() })
+render('light')
+</script>
+</body>
+</html>

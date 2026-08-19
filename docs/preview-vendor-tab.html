@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>dsh-bottom-bar · 价格区「厂商/新增价格」Tab 预览</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; background: #e9e9e7; margin: 0; padding: 32px 20px; display: flex; flex-direction: column; gap: 18px; align-items: center; }
+  h1 { font-size: 18px; color: #333; margin: 0; }
+  .note { font-size: 12px; color: #888; max-width: 780px; text-align: center; line-height: 1.8; }
+  .note b { color: #c15f3c; }
+  .toggle { display: flex; gap: 8px; }
+  .toggle button { border: 1px solid #ccc; background: #fff; border-radius: 8px; padding: 5px 14px; font-size: 12px; cursor: pointer; color: #333; }
+  .toggle button.on { background: #c15f3c; border-color: #c15f3c; color: #fff; }
+
+  .panel { width: 780px; border-radius: 18px; box-sizing: border-box; }
+  .panel.light { background: #fdfdfb; color: #22221f; box-shadow: 0 10px 34px rgba(0,0,0,.09); border: 1px solid #eceae8; }
+  .panel.dark { background: #19191c; color: #eaeae8; box-shadow: 0 10px 34px rgba(0,0,0,.4); border: 1px solid #2a2a2e; }
+
+  .price-head { display: flex; align-items: center; gap: 10px; padding: 16px 20px 0; }
+  .price-head .t { font-size: 14px; font-weight: 700; }
+  .price-head .s { font-size: 11px; color: #9c9c9a; margin-left: auto; font-family: "SF Mono", Consolas, monospace; }
+
+  .tabs { display: flex; gap: 2px; padding: 12px 20px 0; }
+  .tab { font-size: 12.5px; padding: 7px 18px; border-radius: 9px 9px 0 0; border: 1px solid transparent; border-bottom: none; }
+  .tab.off { color: #9c9c9a; cursor: pointer; }
+  .tab.inert { color: #c4c4c2; cursor: default; }
+  .tab.on { color: #c15f3c; font-weight: 700; border-color: #e4e4e2; border-bottom: 2px solid #c15f3c; }
+  .dark .tab.on { color: #f2b18c; border-color: #343437; border-bottom-color: #f2b18c; }
+
+  .tabbody { border-top: 1px solid #e4e4e2; margin: 0 20px; padding: 14px 0 18px; }
+  .dark .tabbody { border-top-color: #343437; }
+
+  .desc { font-size: 12px; color: #9c9c9a; line-height: 1.7; margin-bottom: 10px; }
+  .ordrow { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 11.5px; }
+  .ordlb { color: #9c9c9a; }
+  .ordpill { border: 1px solid #ccc; background: #fff; color: #666; font-size: 11.5px; line-height: 18px; padding: 3px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; font-family: "SF Mono", Consolas, monospace; }
+  .ordpill:hover { border-color: #c15f3c; color: #c15f3c; }
+  .dark .ordpill { background: #26262a; border-color: #3a3a3e; color: #bbb; }
+  .dark .ordpill:hover { border-color: #f2b18c; color: #f2b18c; }
+  .vend-title { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .vend-title-t { font-size: 15px; font-weight: 700; line-height: 22px; color: #22221f; }
+  .dark .vend-title-t { color: #eaeae8; }
+  .vend-title-badge { font-size: 10.5px; font-weight: 600; line-height: 16px; color: #c15f3c; background: rgba(193,95,60,.10); border-radius: 999px; padding: 0 8px; }
+  .dark .vend-title-badge { color: #f2b18c; background: rgba(242,177,140,.14); }
+  .vend-toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; margin-bottom: 10px; }
+  .light .vend-toolbar { background: rgba(0,0,0,.035); }
+  .dark .vend-toolbar { background: rgba(255,255,255,.05); }
+
+  .grid { display: grid; grid-template-columns: 220px 1fr; gap: 0 12px; align-items: center; }
+  .grid.head { padding: 6px 10px; font-size: 11px; color: #9c9c9a; border-radius: 8px; }
+  .light .grid.head { background: rgba(0,0,0,.035); }
+  .dark .grid.head { background: rgba(255,255,255,.05); }
+  .row { padding: 8px 10px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; }
+  .row:hover { background: rgba(193,95,60,.07); }
+  .dark .row:hover { background: rgba(242,177,140,.08); }
+  .row.sel { background: rgba(193,95,60,.10); border-color: rgba(193,95,60,.4); }
+  .dark .row.sel { background: rgba(242,177,140,.12); border-color: rgba(242,177,140,.45); }
+  .vname { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; }
+  .vlogo { width: 18px; height: 18px; border-radius: 5px; object-fit: contain; flex: none; }
+  .vlogos { background: #9c9c9a; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: baseline; gap: 4px; font-size: 11px; padding: 3px 8px; border-radius: 7px; font-family: "SF Mono", Consolas, monospace; }
+  .light .chip { background: rgba(0,0,0,.05); color: #555; }
+  .dark .chip { background: rgba(255,255,255,.07); color: #bbb; }
+  .chip i { font-style: normal; font-size: 10px; color: #9c9c9a; }
+  .chip b { font-weight: 600; color: #22221f; }
+  .dark .chip b { color: #eaeae8; }
+  .chip.zero b { color: #9c9c9a; }
+
+  .matchbar { display: none; grid-column: 1 / -1; margin-top: 4px; font-size: 11.5px; color: #9c9c9a; padding: 7px 10px; border-radius: 8px; font-family: "SF Mono", Consolas, monospace; word-break: break-all; line-height: 1.6; }
+  .row.sel .matchbar { display: block; }
+  .light .matchbar { background: rgba(0,0,0,.04); }
+  .dark .matchbar { background: rgba(255,255,255,.05); }
+  .matchbar .lb { font-family: inherit; color: #c15f3c; font-weight: 600; margin-right: 6px; }
+  .dark .matchbar .lb { color: #f2b18c; }
+
+  .foot { margin-top: 14px; border-radius: 10px; padding: 9px 13px; font-size: 11.5px; line-height: 1.8; color: #9c9c9a; }
+  .light .foot { background: rgba(0,0,0,.035); }
+  .dark .foot { background: rgba(255,255,255,.05); }
+  .foot b { color: #c15f3c; }
+  .dark .foot b { color: #f2b18c; }
+
+  /* ── 新增价格 Tab 演示 ── */
+  .addrow { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .cwrap { position: relative; flex: 1; display: flex; }
+  .mwrap { position: relative; flex: 1.6; display: flex; }
+  .minput, .pinput, .chanput { box-sizing: border-box; font-size: 12px; line-height: 18px; padding: 4px 8px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #333; outline: none; }
+  .minput { flex: 1; min-width: 0; width: 100%; }
+  .pinput { flex: 0.9; }
+  .chanput { flex: 1; min-width: 0; }
+  .dark .minput, .dark .pinput, .dark .chanput { background: #26262a; border-color: #3a3a3e; color: #eaeae8; }
+  .minput:focus, .pinput:focus, .chanput:focus { border-color: #c15f3c; box-shadow: 0 0 0 2px rgba(193,95,60,.18); }
+  .sugg { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; background: #fff; border: 1px solid #ccc; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 4px; max-height: 220px; overflow-y: auto; }
+  .suggrow { display: block; width: 100%; text-align: left; border: none; background: transparent; color: #333; font-size: 12px; font-family: "SF Mono", Consolas, monospace; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+  .suggrow:hover { background: #f2f2f0; }
+  .dark .sugg { background: #26262a; border-color: #3a3a3e; }
+  .dark .suggrow { color: #eaeae8; }
+  .dark .suggrow:hover { background: #2e2e32; }
+  .curseg { display: inline-flex; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; flex: none; }
+  .curseg .curbtn { border: none; background: #fff; color: #666; font-size: 11px; font-weight: 600; line-height: 18px; padding: 4px 9px; cursor: pointer; }
+  .curseg .curbtn.on { background: rgba(193,95,60,.12); color: #c15f3c; }
+  .dark .curseg { border-color: #3a3a3e; }
+  .dark .curseg .curbtn { background: #26262a; color: #bbb; }
+  .dark .curseg .curbtn.on { background: rgba(242,177,140,.14); color: #f2b18c; }
+  .prevpanel { border-radius: 12px; padding: 12px 14px; }
+  .light .prevpanel { background: rgba(0,0,0,.035); border: 1px solid rgba(0,0,0,.06); }
+  .dark .prevpanel { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); }
+  .prevhead { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+  .prevhead .r { font-size: 11px; color: #9c9c9a; font-weight: 500; }
+  .prevgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; font-family: "SF Mono", Consolas, monospace; }
+  .prevgrid span { padding: 2px 0; color: #555; }
+  .dark .prevgrid span { color: #bbb; }
+  .prevgrid span:nth-child(odd) { color: #9c9c9a; font-family: inherit; }
+</style>
+</head>
+<body>
+<h1>dsh-bottom-bar · 价格区「厂商 / 新增价格」Tab 预览</h1>
+<div class="note">厂商比例模板:填<b>输入价</b> → 缓存读 / 缓存写 / 输出 按官方比例自动派生;自动识别按<b>模型名</b>匹配;<br>比例顺序 = <b>输入:输出:缓存读:缓存写</b>(默认,与 models.dev 官方数据对表一致;可切换)。厂商列表已去掉币种列。<br>「新增价格」可交互:<b>输入法式联想</b>——输入 dee 联想 deepseek- 再联想 v4-flash/v3.1 等,回车或点选上屏;币种滑槽切换;实时预览派生价。</div>
+<div class="toggle" id="tg">
+  <button data-m="light" class="on">浅色</button>
+  <button data-m="dark">深色</button>
+</div>
+
+<div id="sheet"></div>
+
+<script>
+const vendors = [
+  { logo: 'deepseek',   name: 'DeepSeek V4', prefix: 'deepseek-', versions: ['v3.1', 'v3.2', 'v4-flash', 'v4-pro'], kw: ['deepseek'], ratio: [1, 3,  0.0318, 0], cur: 'USD', match: 'deepseek-v4-flash · deepseek-v4-pro' },
+  { logo: 'anthropic',  name: 'Claude',      prefix: 'claude-',   versions: ['sonnet-5', 'opus-5'], kw: ['claude'],   ratio: [1, 5,  0.1, 1.25], cur: 'USD', match: 'claude-sonnet-5 · claude-opus-5' },
+  { logo: 'openai',     name: 'GPT-5.x',     prefix: 'gpt-',      versions: ['5.5', '5.6-sol', '5.6-luna'], kw: ['gpt-5'], ratio: [1, 6,  0.1, 1.25], cur: 'USD', match: 'gpt-5.6-sol · gpt-5.6-luna' },
+  { logo: 'google',     name: 'Gemini 3',    prefix: 'gemini-',   versions: ['3.7-flash'], kw: ['gemini'],   ratio: [1, 4,  0.25, 1],   cur: 'USD', match: 'gemini-3.7-flash' },
+  { logo: 'moonshot',   name: 'Kimi K3',     prefix: 'kimi-',     versions: ['k3', 'k3-fast'], kw: ['kimi'],     ratio: [1, 4,  0.2, 1],    cur: 'CNY', match: 'kimi-k3 · kimi-k3-fast' },
+  { logo: 'alibaba',    name: 'Qwen 3.5',    prefix: 'qwen-',     versions: ['3.5-plus', '3.5-omni-plus'], kw: ['qwen'], ratio: [1, 5,  0.1667, 1], cur: 'CNY', match: 'qwen3.5-plus · qwen3.5-omni-plus' },
+  { logo: 'zhipu',      name: 'GLM 5',       prefix: 'glm-',      versions: ['5.2', '5.3'], kw: ['glm'],     ratio: [1, 3.5, 0.2, 1],   cur: 'CNY', match: 'glm-5.2 · glm-5.3' },
+  { logo: 'minimax',    name: 'MiniMax M3',  prefix: 'minimax-',  versions: ['m3', 'm3-preview'], kw: ['minimax'], ratio: [1, 4,  0.1, 1],    cur: 'CNY', match: 'minimax-m3 · minimax-m3-preview' },
+  { logo: 'volcengine', name: '豆包 Seed 2', prefix: 'doubao-',   versions: ['seed-2-1-turbo', 'seed-2.1-pro'], kw: ['doubao', 'seed'], ratio: [1, 4,  0.1, 1], cur: 'CNY', match: 'seed-2-1-turbo · doubao-seed-2.1-pro' },
+  { logo: 'xai',        name: 'Grok 4',      prefix: 'grok-',     versions: ['4.6'], kw: ['grok'],     ratio: [1, 5,  0.1, 1],    cur: 'USD', match: 'grok-4.6' },
+]
+const ORDER_LABELS = {
+  'in-out-read-write': ['输入', '输出', '缓存读', '缓存写'],
+  'in-read-write-out': ['输入', '缓存读', '缓存写', '输出'],
+}
+let order = 'in-out-read-write'
+let curMode = 'light'
+let tab = 'vendor'
+let mInput = ''
+let inVal = ''
+let newCurr = '' // '' = 跟模板
+const orderHead = (o) => '比例（' + ORDER_LABELS[o].join(' : ') + '）'
+const orderVals = (o, ratio) => o === 'in-read-write-out' ? [1, ratio[2], ratio[3], ratio[1]] : ratio
+const vendOf = (m) => { const s = m.toLowerCase(); for (const v of vendors) if (v.kw.some((k) => s.includes(k))) return v; return null }
+// 演示用「你的模型」——插件里来自 用过的模型 + 已配价格键
+const demoModels = ['opencode-go/deepseek-v4-flash', 'opencode/deepseek-v4-flash-free', 'opencode-go/glm-5.2']
+const demoChans = [...new Set(demoModels.map((d) => d.slice(0, d.indexOf('/'))))].sort()
+let suggChan = false
+let suggModel = false
+function computeSugg(ql, chan) {
+  const out = []
+  const seen = new Set()
+  const pushM = (s) => { if (!seen.has(s) && s.toLowerCase().includes(ql)) { seen.add(s); out.push(s) } }
+  const pre = chan ? chan + '/' : ''
+  for (const d of demoModels) {
+    if (pre !== '') {
+      if (d.startsWith(pre)) { const rest = d.slice(pre.length); if (rest !== '' && rest.toLowerCase().includes(ql)) pushM(rest) }
+    } else if (d.toLowerCase().includes(ql)) pushM(d)
+  }
+  for (const v of vendors) {
+    if (v.name.toLowerCase().includes(ql) || v.prefix.toLowerCase().includes(ql)) {
+      pushM(v.prefix)
+      ;(v.versions || []).forEach((vv) => pushM(v.prefix + vv))
+    }
+  }
+  return out.slice(0, 9)
+}
+
+function logoFail(el) {
+  const nick = el.getAttribute('data-nick') || '?'
+  const d = document.createElement('span')
+  d.className = 'vlogo vlogos'
+  d.textContent = nick.charAt(0)
+  el.replaceWith(d)
+}
+
+function vendorBody() {
+  return `
+      <div class="vend-title">
+        <span class="vend-title-t">厂商比例模板</span>
+        <span class="vend-title-badge">${vendors.length} 个模板</span>
+      </div>
+      <div class="desc">填输入价 → 缓存读/缓存写/输出 按官方比例自动派生;自动识别按模型名匹配;同一厂商多套价格体系暂手动维护。</div>
+      <div class="vend-toolbar">
+        <span class="ordlb" style="flex:1">四格编排顺序（仅展示排列,不影响换算）:</span>
+        <button class="ordpill" title="点击切换编排顺序">⇄ ${order === 'in-out-read-write' ? '输入:输出:缓存读:缓存写' : '输入:缓存读:缓存写:输出'}</button>
+      </div>
+      <div class="grid head">
+        <span>厂商</span><span>${orderHead(order)}</span>
+      </div>
+      ${vendors.map((v, idx) => `
+      <div class="grid row" data-i="${idx}">
+        <span class="vname"><img class="vlogo" src="https://models.dev/logos/${v.logo}.svg" data-nick="${v.name}" onerror="logoFail(this)" alt="">${v.name}</span>
+        <span class="chips">${orderVals(order, v.ratio).map((r, j) => `
+          <span class="chip${r === 0 ? ' zero' : ''}"><i>${ORDER_LABELS[order][j]}</i><b>${r}x</b></span>`).join('')}
+        </span>
+        <span class="matchbar"><span class="lb">自动匹配示例</span>${v.match}</span>
+      </div>`).join('')}
+      <div class="foot"><b>「⚖ 参考厂商」</b>配置(中转参考别家比例)与自定义比例维护将随后续版本提供;当前可用「新增价格」里的手动填写与厂商选择。</div>`
+}
+
+function addBody() {
+  const v = vendOf(mInput)
+  const ratio = v ? v.ratio : [1, 4, 0.25, 1]
+  const cur = newCurr || (v ? v.cur : 'USD')
+  const sym = cur === 'USD' ? '$' : '¥'
+  const inN = Number(inVal)
+  const money = (x) => (Number.isFinite(inN) && inN > 0 ? sym + String(Math.round(inN * x * 1000) / 1000) + '/1M' : '—')
+  const vals = { 输入: Number.isFinite(inN) && inN > 0 ? sym + inN + '/1M' : '—', 输出: money(ratio[1]), 缓存读: money(ratio[2]), 缓存写: money(ratio[3]) }
+  const grid = ORDER_LABELS[order].map((l) => `<span>${l}</span><span>${vals[l]}</span>`).join('')
+  const slashA = mInput.indexOf('/')
+  const chanPart = slashA > 0 ? mInput.slice(0, slashA) : ''
+  const modelPart = slashA > 0 ? mInput.slice(slashA + 1) : mInput
+  const suggRows = modelPart !== '' || chanPart !== '' ? computeSugg(modelPart.toLowerCase(), chanPart || null) : []
+  const chanRows = demoChans.filter((c) => c.toLowerCase().includes(chanPart.toLowerCase()))
+  return `
+      <div class="desc">填输入价 → 自动匹配厂商并按官方比例推算 → 确认后加入价格表。<b>渠道与模型分成两个框</b>:渠道留空 = 全局默认价;填写渠道 = 该渠道特选价。<br><b>输入法式联想</b>:渠道框输入联想你见过的渠道;选了渠道后模型框自动收窄为该渠道下的模型;再输 dee 联想 deepseek-、v4-flash 等;回车或点选上屏。</div>
+      <div class="addrow">
+        <div class="cwrap">
+          <input class="chanput" id="cinput" type="text" placeholder="渠道(可选,如 opencode-go)" title="留空=全局默认价;填写=该渠道特选价" value="${chanPart}">
+          ${suggChan && chanRows.length ? `<div class="sugg">${chanRows.map((c) => `<button class="suggrow" data-chan="${c}">${c}</button>`).join('')}</div>` : ''}
+        </div>
+        <div class="mwrap">
+          <input class="minput" id="minput" type="text" placeholder="模型 id，如 deepseek-v4-flash" value="${modelPart}">
+          ${suggModel && suggRows.length ? `<div class="sugg">${suggRows.map((s) => `<button class="suggrow" data-sugg="${s}">${s}</button>`).join('')}</div>` : ''}
+        </div>
+        <input class="pinput" id="pinput" type="number" placeholder="空闲输入价 (${cur})" value="${inVal}">
+        <span class="curseg">
+          <button class="curbtn${cur === 'CNY' ? ' on' : ''}" data-cur="CNY">CNY</button>
+          <button class="curbtn${cur === 'USD' ? ' on' : ''}" data-cur="USD">USD</button>
+        </span>
+      </div>
+      <div class="prevpanel">
+        <div class="prevhead">
+          <span>💡 自动识别: ${v ? v.name : '通用比例（未识别厂商）'}</span>
+          <span class="r">币种 ${cur} · 全局默认</span>
+        </div>
+        <div class="prevgrid">${grid}</div>
+      </div>`
+}
+
+function render(mode) {
+  const dark = mode === 'dark'
+  const sheet = document.getElementById('sheet')
+  const panel = document.createElement('div')
+  panel.className = 'panel ' + mode
+  panel.innerHTML = `
+    <div class="price-head">
+      <span class="t">价格设置</span>
+      <span class="s">价格区 · 厂商比例模板 / 新增价格</span>
+    </div>
+    <div class="tabs">
+      <span class="tab inert" title="预览中仅展示 新增价格 / 厂商">价格表</span>
+      <span class="tab${tab === 'add' ? ' on' : ' off'}" data-tab="add">新增价格</span>
+      <span class="tab${tab === 'vendor' ? ' on' : ' off'}" data-tab="vendor">厂商</span>
+    </div>
+    <div class="tabbody">
+      ${tab === 'add' ? addBody() : vendorBody()}
+    </div>
+  `
+  sheet.innerHTML = ''
+  sheet.appendChild(panel)
+  curMode = mode
+
+  panel.querySelectorAll('.tab[data-tab]').forEach((t) => {
+    t.addEventListener('click', () => { tab = t.dataset.tab; render(curMode) })
+  })
+  const ordPill = panel.querySelector('.ordpill')
+  if (ordPill) ordPill.addEventListener('click', () => { order = order === 'in-out-read-write' ? 'in-read-write-out' : 'in-out-read-write'; render(curMode) })
+  panel.querySelectorAll('.curbtn').forEach((b) => {
+    b.addEventListener('click', () => { newCurr = b.dataset.cur; render(curMode) })
+  })
+  const mi = panel.querySelector('#minput')
+  const pi = panel.querySelector('#pinput')
+  const ci = panel.querySelector('#cinput')
+  const pickChan = (c) => { const sa = mInput.indexOf('/'); const mp = sa > 0 ? mInput.slice(sa + 1) : mInput; mInput = (c !== '' ? c + '/' : '') + mp; suggChan = false; render(curMode) }
+  if (ci) {
+    ci.addEventListener('focus', () => { if (!suggChan) { suggChan = true; render(curMode) } })
+    ci.addEventListener('input', () => { const t = ci.value.trim(); const sa = mInput.indexOf('/'); const mp = sa > 0 ? mInput.slice(sa + 1) : mInput; mInput = (t !== '' ? t + '/' : '') + mp; suggChan = true; render(curMode) })
+    ci.addEventListener('keydown', (e) => { if (e.key === 'Enter' && suggChan) { const rs = panel.querySelectorAll('.cwrap .suggrow'); if (rs.length > 0) { e.preventDefault(); pickChan(rs[0].dataset.chan) } } })
+    if (suggChan && document.activeElement !== ci) ci.focus()
+  }
+  if (mi) {
+    mi.addEventListener('focus', () => { if (!suggModel) { suggModel = true; render(curMode) } })
+    mi.addEventListener('input', () => { const t = mi.value.trim(); const sa = mInput.indexOf('/'); const cp = sa > 0 ? mInput.slice(0, sa) : ''; mInput = (cp !== '' ? cp + '/' : '') + t; suggModel = true; render(curMode) })
+    mi.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && suggModel) {
+        const rows = panel.querySelectorAll('.mwrap .suggrow')
+        if (rows.length > 0) { e.preventDefault(); mInput = rows[0].dataset.sugg; suggModel = false; render(curMode) }
+      }
+    })
+    if (suggModel && document.activeElement !== mi) mi.focus()
+  }
+  if (pi) pi.addEventListener('input', () => { inVal = pi.value; render(curMode) })
+  panel.querySelectorAll('.cwrap .suggrow').forEach((b) => {
+    b.addEventListener('mousedown', (e) => e.preventDefault())
+    b.addEventListener('click', () => pickChan(b.dataset.chan))
+  })
+  panel.querySelectorAll('.mwrap .suggrow').forEach((b) => {
+    b.addEventListener('mousedown', (e) => e.preventDefault())
+    b.addEventListener('click', () => { mInput = b.dataset.sugg; suggModel = false; render(curMode) })
+  })
+  panel.querySelectorAll('.row').forEach((row) => {
+    row.addEventListener('click', () => {
+      const was = row.classList.contains('sel')
+      panel.querySelectorAll('.row.sel').forEach((r) => r.classList.remove('sel'))
+      if (!was) row.classList.add('sel')
+    })
+  })
+}
+
+document.getElementById('tg').addEventListener('click', (e) => {
+  const b = e.target.closest('button')
+  if (!b) return
+  document.querySelectorAll('#tg button').forEach((x) => x.classList.remove('on'))
+  b.classList.add('on')
+  render(b.dataset.m)
+})
+document.addEventListener('click', (e) => {
+  if ((suggChan || suggModel) && !e.target.closest('.mwrap') && !e.target.closest('.cwrap')) { suggChan = false; suggModel = false; render(curMode) }
+})
+render('light')
+</script>
+</body>
+</html>

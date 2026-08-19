@@ -52,6 +52,7 @@ const WIRES = {
   removePrice: 'remove-price',
   resetPrices: 'reset-prices',
   getClientUsage: 'get-client-usage',
+  getBalance: 'get-balance',
   diagnostics: 'diagnostics',
 }
 body = body.replace(/remote\.(\w+)\(([^)]*)\)/g, (m, name, args) => {
