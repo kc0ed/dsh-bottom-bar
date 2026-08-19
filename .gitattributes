@@ -1,0 +1,9 @@
+# 1.1.1：全仓库统一 LF,防止 autocrlf 把工作树搅成 CRLF
+* text=auto eol=lf
+*.md text eol=lf
+*.cjs text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.html text eol=lf
+*.cjs text eol=lf

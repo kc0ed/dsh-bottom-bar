@@ -1,9 +1,13 @@
 {
   "name": "@kc0ed/dsh-bottom-bar",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "底栏统计设置：可组装的输入框下方统计行 + 预估费用（含 DeepSeek 峰谷定价）+ 自研持久化账本（客户端全量对账）+ 设置页（底栏）。",
   "type": "module",
   "main": "lib/index.js",
+  "scripts": {
+    "build:client": "node scripts/inline-static-client.cjs && node scripts/static-to-dynamic.cjs lib/client.js dynamic/client.js",
+    "check": "node --check lib/client.js && node --check lib/client-css.cjs && node --check lib/client-data.cjs && node --check lib/client-format.cjs && node --check lib/index.js && node --check lib/dsk-balance.js && node --check lib/pricing.js"
+  },
   "publishConfig": {
     "access": "public"
   },

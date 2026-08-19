@@ -9,111 +9,10 @@
 return {
   inject: ['timer', 'locale', 'slots'],
 
-    var module = { exports: {} }
-    var exports = module.exports
-    Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
-    let React = require('react')
-
-    // ── 幂等样式注入（静态插件无 styles 符号） ──
-    function styles.insert(css) {
-      // 追加 + Set 去重（函数属性，避免顶层声明被生成器带进动态插件对象）：
-      // 多次调用不互相覆盖、重挂不重复追加
-      if (typeof document === 'undefined') return
-      if (insertCss.seen === undefined) insertCss.seen = new Set()
-      if (insertCss.seen.has(css)) return
-      insertCss.seen.add(css)
-      const tagId = 'dsh-bottom-bar'
-      let tag = document.querySelector('style[data-plugin-css="' + tagId + '"]')
-      if (tag === null) {
-        tag = document.createElement('style')
-        tag.dataset.pluginCss = tagId
-        document.head.appendChild(tag)
-      }
-      tag.textContent += css
-    }
-
-    const LS_CFG_KEY = 'dsh-bottom-bar:config'
-    const getLocalConfig = () => {
-      try {
-        const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_CFG_KEY) : null
-        if (raw) return JSON.parse(raw)
-      } catch (e) {}
-      return null
-    }
-    const setLocalConfig = (cfg) => {
-      try {
-        if (typeof localStorage !== 'undefined' && cfg && typeof cfg === 'object') {
-          localStorage.setItem(LS_CFG_KEY, JSON.stringify(cfg))
-        }
-      } catch (e) {}
-    }
-    // 修订 171/172：余额币种过滤——CNY 恒显示;USD 等其他币种仅当有充值史
-    // (topped_up_balance ≠ 0,充了花超为负也算充过)才显示;=0 说明从未充值
-    const balInfosOf = (b) => (b !== null && b !== undefined && Array.isArray(b.infos) ? b.infos : []).filter((i) => i.currency === 'CNY' || Number(i.toppedUp) !== 0)
-    // 修订 160：峰谷提示语取值顺序——估算自带标签 → 本地配置兜底 → 默认
-    const pkLabelFor = (p, which) => {
-      const v = p ? (which === 'on' ? p.labelOn : p.labelOff) : undefined
-      if (typeof v === 'string' && v !== '') return v
-      const lc = getLocalConfig()
-      const k = which === 'on' ? 'peakLabel' : 'peakIdleLabel'
-      if (lc && typeof lc[k] === 'string' && lc[k] !== '') return lc[k]
-      return which === 'on' ? '高峰' : '低谷'
-    }
-
-    const inject = ['slots', 'remote', 'locale', 'timer']
-
-    async apply(ctx) {
-      // 修订 36（静态包）：Remote contribution——host 侧 SRC 发现按方法名路由，
-      // 客户端在 apply 里运行时 $mount 本 contribution（预构建的 dsh-api-remotes
-      // 不包含我们，必须自挂载），之后 ctx.get('remote.bottomBar') 才可用。
-      // ⚠️ 常量必须声明在 apply 内：生成器把 factory 顶层的语句放进动态插件的
-      // return 对象字面量中间（const 声明在对象里 = 语法错误）。
-      const TYPERT_JSON = { _zod: {}, parse: (v) => v }
-      const TYPERT_REMOTE = {
-        package: '@kc0ed/dsh-bottom-bar',
-        descriptors: [
-          { id: 'dsh-bottom-bar#bottomBar/estimateCost', service: 'bottomBar', namespace: 'bottomBar', method: 'estimateCost', invocation: { kind: 'direct' }, parameters: [{ name: 'args', wire: 'args', source: 'json', codec: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } }], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
-          { id: 'dsh-bottom-bar#bottomBar/getClientUsage', service: 'bottomBar', namespace: 'bottomBar', method: 'getClientUsage', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
-          { id: 'dsh-bottom-bar#bottomBar/getBalance', service: 'bottomBar', namespace: 'bottomBar', method: 'getBalance', invocation: { kind: 'direct' }, parameters: [{ name: 'args', wire: 'args', source: 'json', codec: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } }], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
-          { id: 'dsh-bottom-bar#bottomBar/getConfig', service: 'bottomBar', namespace: 'bottomBar', method: 'getConfig', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
-          { id: 'dsh-bottom-bar#bottomBar/setConfig', service: 'bottomBar', namespace: 'bottomBar', method: 'setConfig', invocation: { kind: 'direct' }, parameters: [{ name: 'args', wire: 'args', source: 'json', codec: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } }], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
-          { id: 'dsh-bottom-bar#bottomBar/resetConfig', service: 'bottomBar', namespace: 'bottomBar', method: 'resetConfig', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
-          { id: 'dsh-bottom-bar#bottomBar/getPrices', service: 'bottomBar', namespace: 'bottomBar', method: 'getPrices', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
-          { id: 'dsh-bottom-bar#bottomBar/setPrice', service: 'bottomBar', namespace: 'bottomBar', method: 'setPrice', invocation: { kind: 'direct' }, parameters: [{ name: 'args', wire: 'args', source: 'json', codec: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } }], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
-          { id: 'dsh-bottom-bar#bottomBar/removePrice', service: 'bottomBar', namespace: 'bottomBar', method: 'removePrice', invocation: { kind: 'direct' }, parameters: [{ name: 'args', wire: 'args', source: 'json', codec: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } }], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
-          { id: 'dsh-bottom-bar#bottomBar/resetPrices', service: 'bottomBar', namespace: 'bottomBar', method: 'resetPrices', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
-          { id: 'dsh-bottom-bar#bottomBar/diagnostics', service: 'bottomBar', namespace: 'bottomBar', method: 'diagnostics', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
-        ],
-      }
-      const mountSvc = ctx.get('remote')
-      if (mountSvc !== undefined && typeof mountSvc.$mount === 'function') {
-        try {
-          await mountSvc.$mount(TYPERT_REMOTE)
-        } catch (err) {
-          console.error('dsh-bottom-bar: remote mount failed', err)
-        }
-      }
-      // 修订 37c：remote 代理方法返回 {ok, value} 包装——Proxy 统一解包成裸数据
-      const unwrapRemote = (r) => (r !== null && typeof r === 'object' && r.ok === true && Object.prototype.hasOwnProperty.call(r, 'value')) ? r.value : r
-      const remoteRaw = ctx.get('remote.bottomBar')
-      const remote = (remoteRaw !== null && remoteRaw !== undefined && typeof Proxy !== 'undefined')
-        ? new Proxy(remoteRaw, {
-            get(target, prop) {
-              const v = target[prop]
-              if (typeof v === 'function') return (...args) => Promise.resolve(v.apply(target, args)).then(unwrapRemote)
-              return v
-            },
-          })
-        : remoteRaw
-        try {
-          ctx.effect(() => ctx.locale.register('dsh-bottom-bar', {
-            zh: { input: '输入 {input} tok · 输出 {output} tok', cacheHit: '缓存命中 {tokens} tok' },
-            en: { input: 'Input {input} tok · Output {output} tok', cacheHit: 'Cache hit {tokens} tok' },
-          }), 'dsh-bottom-bar: dictionaries')
-        } catch (err) { console.error('dsh-bottom-bar: locale ns already registered (stale run); continuing', err) }
-        const t = ctx.locale.bind('conversation')
-        const tb = ctx.locale.bind('dsh-bottom-bar')
-        styles.insert(`/* ══════════════════════════════════════════════════════════════════
+                
+/* [inlined lib/client-css.cjs] */
+const CLIENT_CSS = `
+/* ══════════════════════════════════════════════════════════════════
    dsh-bottom-bar · 经典 Claude 暖纸与黑曜石精雕美学 UI
    ══════════════════════════════════════════════════════════════════ */
 .dsh-stats-root {
@@ -2129,7 +2028,189 @@ body[data-ds-dark-theme] .dsh-mcell-in {
 .dsh-cur-btn.dsh-on {
   background: var(--dsw-alias-brand-primary);
   color: var(--dsw-alias-bg-base);
-}`)
+}
+`
+
+    
+/* [inlined lib/client-data.cjs] */
+const SEGMENT_IDS = ['counts', 'llm', 'toolCall', 'ttft', 'throughput', 'cacheHit', 'tokens', 'cost', 'peak', 'balance']
+        const SEGMENT_LABELS = {
+          counts: '轮/步', llm: 'LLM 时长', toolCall: '工具调用时长', ttft: '首 token 平均',
+          throughput: '吞吐 tok/s', cacheHit: '缓存命中', tokens: '输入/输出 token', cost: '预估费用', peak: '峰谷时段', balance: 'DeepSeek 余额',
+        }
+        const PREVIEW_TEXTS = {
+          counts: '12 轮 · 45 步', llm: 'LLM 2m10s', toolCall: '工具调用时长 45s', ttft: '首 token 平均 1.8s', throughput: '34.2 tok/s',
+          cacheHit: { separate: '缓存命中 5.93M tok', combined: '缓存命中 97%' },
+          tokens: { separate: '输入 96.3K tok · 输出 72.8K tok', combined: '输入 6.0M tok · 输出 72.8K tok' },
+          cost: '预估 ¥0.36', peak: '⏱ 高峰 输入 ¥3.0/1M', balance: 'DeepSeek 余额 ¥18.20',
+        }
+        const DEFAULT_COMPOSITION = SEGMENT_IDS.map((id) => ({ id, enabled: true }))
+
+            const VENDOR_TEMPLATES = [
+              { id: 'auto', name: '⚡ 自动识别（默认）' },
+              { id: 'deepseek-v4', name: '🐳 DeepSeek V4', nick: 'DeepSeek V4', logo: 'deepseek', prefix: 'deepseek-', versions: ['v3.1', 'v3.2', 'v4-flash', 'v4-pro'], currency: 'USD', out: 3, read: 0.0318, write: 0, match: 'deepseek-v4-flash · deepseek-v4-pro' },
+              { id: 'claude', name: '⚡ Claude', nick: 'Claude', logo: 'anthropic', prefix: 'claude-', versions: ['sonnet-5', 'opus-5'], currency: 'USD', out: 5, read: 0.1, write: 1.25, match: 'claude-sonnet-5 · claude-opus-5' },
+              { id: 'openai-gpt5', name: '🧠 GPT-5.x', nick: 'GPT-5.x', logo: 'openai', prefix: 'gpt-', versions: ['5.5', '5.6-sol', '5.6-luna'], currency: 'USD', out: 6, read: 0.1, write: 1.25, match: 'gpt-5.6-sol · gpt-5.6-luna' },
+              { id: 'gemini', name: '🌐 Gemini 3', nick: 'Gemini 3', logo: 'google', prefix: 'gemini-', versions: ['3.7-flash'], currency: 'USD', out: 4, read: 0.25, write: 1, match: 'gemini-3.7-flash' },
+              { id: 'kimi', name: '🌙 Kimi K3', nick: 'Kimi K3', logo: 'moonshot', prefix: 'kimi-', versions: ['k3', 'k3-fast'], currency: 'CNY', out: 4, read: 0.2, write: 1, match: 'kimi-k3 · kimi-k3-fast' },
+              { id: 'qwen35', name: '🇨🇳 Qwen 3.5', nick: 'Qwen 3.5', logo: 'alibaba', prefix: 'qwen-', versions: ['3.5-plus', '3.5-omni-plus'], currency: 'CNY', out: 5, read: 0.1667, write: 1, match: 'qwen3.5-plus · qwen3.5-omni-plus' },
+              { id: 'glm', name: '📘 GLM 5', nick: 'GLM 5', logo: 'zhipu', prefix: 'glm-', versions: ['5.2', '5.3'], currency: 'CNY', out: 3.5, read: 0.2, write: 1, match: 'glm-5.2 · glm-5.3' },
+              { id: 'minimax', name: '🤖 MiniMax M3', nick: 'MiniMax M3', logo: 'minimax', prefix: 'minimax-', versions: ['m3', 'm3-preview'], currency: 'CNY', out: 4, read: 0.1, write: 1, match: 'minimax-m3 · minimax-m3-preview' },
+              { id: 'doubao', name: '⚡ 豆包 Seed 2', nick: '豆包 Seed 2', logo: 'volcengine', prefix: 'doubao-', versions: ['seed-2-1-turbo', 'seed-2.1-pro'], currency: 'CNY', out: 4, read: 0.1, write: 1, match: 'seed-2-1-turbo · doubao-seed-2.1-pro' },
+              { id: 'grok', name: '🪐 Grok 4', nick: 'Grok 4', logo: 'xai', prefix: 'grok-', versions: ['4.6'], currency: 'USD', out: 5, read: 0.1, write: 1, match: 'grok-4.6' },
+              { id: 'custom', name: '⚙️ 手动填写' },
+            ]
+
+            const RATIO_ORDERS = [
+              { id: 'in-out-read-write', label: '输入:输出:缓存读:缓存写', head: '比例（输入:输出:缓存读:缓存写）' },
+              { id: 'in-read-write-out', label: '输入:缓存读:缓存写:输出', head: '比例（输入:缓存读:缓存写:输出）' },
+            ]
+            const ratioOrderObj = (o) => RATIO_ORDERS.find((r) => r.id === o) || RATIO_ORDERS[0]
+
+            const ratioCellsOf = (o, t) => o === 'in-out-read-write'
+              ? [['输入', 1, false], ['输出', t.out, t.out === 0], ['缓存读', t.read, t.read === 0], ['缓存写', t.write, t.write === 0]]
+              : [['输入', 1, false], ['缓存读', t.read, t.read === 0], ['缓存写', t.write, t.write === 0], ['输出', t.out, t.out === 0]]
+
+            const LEGACY_TPLS = {
+              openaiClassic: { currency: 'USD', out: 4, read: 0.5, write: 1.0 },
+              deepseekV3: { currency: 'CNY', out: 4, read: 0.25, write: 1.0 },
+              qwenClassic: { currency: 'CNY', out: 3, read: 0.25, write: 1.0 },
+              generic: { currency: 'USD', out: 4, read: 0.25, write: 1.0 },
+            }
+
+    
+/* [inlined lib/client-format.cjs] */
+const balInfosOf = (b) => (b !== null && b !== undefined && Array.isArray(b.infos) ? b.infos : []).filter((i) => i.currency === 'CNY' || Number(i.toppedUp) !== 0)
+
+        const formatTokens = (n) => {
+          const scaled = (v) => v >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10)
+          if (n < 1e3) return String(n)
+          if (n < 1e6) return scaled(n / 1e3) + 'K'
+          return scaled(n / 1e6) + 'M'
+        }
+        const formatDuration = (ms) => {
+          const s = ms / 1e3
+          if (s < 60) return Math.round(s * 10) / 10 + 's'
+          const whole = Math.round(s)
+          return Math.floor(whole / 60) + 'm' + whole % 60 + 's'
+        }
+        const formatTokensPerSecond = (tps) => {
+          const clamped = Math.max(0, tps)
+          return clamped >= 10 ? String(Math.round(clamped)) : String(Math.round(clamped * 10) / 10)
+        }
+
+        const formatCtx = (n) => {
+          if (!Number.isFinite(n)) return String(n)
+          if (n >= 1e6) return (Math.round(n / 1e6 * 10) / 10) + 'M'
+          if (n >= 1e3) {
+            const k = n / 1e3
+            return (k >= 100 ? String(Math.round(k)) : String(Math.round(k * 10) / 10)) + 'k'
+          }
+          return String(n)
+        }
+        const billedInputTokens = (usage) => (usage ? usage.uncachedInputTokens : 0) + (usage ? usage.cacheReadTokens : 0) + (usage ? usage.cacheWriteTokens : 0)
+        const cacheHitPercent = (usage) => {
+          const denominator = billedInputTokens(usage)
+          return denominator === 0 ? null : Math.round(usage.cacheReadTokens / denominator * 100)
+        }
+        const compactMoney = (v, currency, precision) => {
+          const prefix = currency === 'CNY' ? '¥' : '$'
+          if (precision === 'full') return prefix + (v === 0 ? '0.0000' : v.toFixed(4))
+          if (v === 0) return prefix + '0'
+          if (v >= 1) return prefix + v.toFixed(2)
+          if (v >= 0.01) return prefix + v.toFixed(2)
+          return prefix + v.toFixed(3)
+        }
+
+            const r4x = (x) => Math.round(x * 1000) / 1000
+
+            const cellRatio = (inV, v) => {
+              const inN = Number(inV)
+              if (!Number.isFinite(inN) || inN <= 0) return null
+              if (v === undefined || v === null || !Number.isFinite(Number(v))) return null
+              return (Math.round((Number(v) / inN) * 10000) / 10000) + 'x'
+            }
+
+
+    
+    const LS_CFG_KEY = 'dsh-bottom-bar:config'
+    const getLocalConfig = () => {
+      try {
+        const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_CFG_KEY) : null
+        if (raw) return JSON.parse(raw)
+      } catch (e) {}
+      return null
+    }
+    const setLocalConfig = (cfg) => {
+      try {
+        if (typeof localStorage !== 'undefined' && cfg && typeof cfg === 'object') {
+          localStorage.setItem(LS_CFG_KEY, JSON.stringify(cfg))
+        }
+      } catch (e) {}
+    }
+    // 修订 160：峰谷提示语取值顺序——估算自带标签 → 本地配置兜底 → 默认
+    const pkLabelFor = (p, which) => {
+      const v = p ? (which === 'on' ? p.labelOn : p.labelOff) : undefined
+      if (typeof v === 'string' && v !== '') return v
+      const lc = getLocalConfig()
+      const k = which === 'on' ? 'peakLabel' : 'peakIdleLabel'
+      if (lc && typeof lc[k] === 'string' && lc[k] !== '') return lc[k]
+      return which === 'on' ? '高峰' : '低谷'
+    }
+
+    
+    async apply(ctx) {
+      // 修订 36（静态包）：Remote contribution——host 侧 SRC 发现按方法名路由，
+      // 客户端在 apply 里运行时 $mount 本 contribution（预构建的 dsh-api-remotes
+      // 不包含我们，必须自挂载），之后 ctx.get('remote.bottomBar') 才可用。
+      // ⚠️ 常量必须声明在 apply 内：生成器把 factory 顶层的语句放进动态插件的
+      // return 对象字面量中间（const 声明在对象里 = 语法错误）。
+      const TYPERT_JSON = { _zod: {}, parse: (v) => v }
+      const TYPERT_REMOTE = {
+        package: '@kc0ed/dsh-bottom-bar',
+        descriptors: [
+          { id: 'dsh-bottom-bar#bottomBar/estimateCost', service: 'bottomBar', namespace: 'bottomBar', method: 'estimateCost', invocation: { kind: 'direct' }, parameters: [{ name: 'args', wire: 'args', source: 'json', codec: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } }], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
+          { id: 'dsh-bottom-bar#bottomBar/getClientUsage', service: 'bottomBar', namespace: 'bottomBar', method: 'getClientUsage', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
+          { id: 'dsh-bottom-bar#bottomBar/getBalance', service: 'bottomBar', namespace: 'bottomBar', method: 'getBalance', invocation: { kind: 'direct' }, parameters: [{ name: 'args', wire: 'args', source: 'json', codec: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } }], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
+          { id: 'dsh-bottom-bar#bottomBar/getConfig', service: 'bottomBar', namespace: 'bottomBar', method: 'getConfig', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
+          { id: 'dsh-bottom-bar#bottomBar/setConfig', service: 'bottomBar', namespace: 'bottomBar', method: 'setConfig', invocation: { kind: 'direct' }, parameters: [{ name: 'args', wire: 'args', source: 'json', codec: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } }], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
+          { id: 'dsh-bottom-bar#bottomBar/resetConfig', service: 'bottomBar', namespace: 'bottomBar', method: 'resetConfig', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
+          { id: 'dsh-bottom-bar#bottomBar/getPrices', service: 'bottomBar', namespace: 'bottomBar', method: 'getPrices', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
+          { id: 'dsh-bottom-bar#bottomBar/setPrice', service: 'bottomBar', namespace: 'bottomBar', method: 'setPrice', invocation: { kind: 'direct' }, parameters: [{ name: 'args', wire: 'args', source: 'json', codec: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } }], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
+          { id: 'dsh-bottom-bar#bottomBar/removePrice', service: 'bottomBar', namespace: 'bottomBar', method: 'removePrice', invocation: { kind: 'direct' }, parameters: [{ name: 'args', wire: 'args', source: 'json', codec: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } }], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
+          { id: 'dsh-bottom-bar#bottomBar/resetPrices', service: 'bottomBar', namespace: 'bottomBar', method: 'resetPrices', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
+          { id: 'dsh-bottom-bar#bottomBar/diagnostics', service: 'bottomBar', namespace: 'bottomBar', method: 'diagnostics', invocation: { kind: 'direct' }, parameters: [], result: { mode: 'strict', typeSymbol: 'dsh-bottom-bar#Json', schema: TYPERT_JSON } },
+        ],
+      }
+      const mountSvc = ctx.get('remote')
+      if (mountSvc !== undefined && typeof mountSvc.$mount === 'function') {
+        try {
+          await mountSvc.$mount(TYPERT_REMOTE)
+        } catch (err) {
+          console.error('dsh-bottom-bar: remote mount failed', err)
+        }
+      }
+      // 修订 37c：remote 代理方法返回 {ok, value} 包装——Proxy 统一解包成裸数据
+      const unwrapRemote = (r) => (r !== null && typeof r === 'object' && r.ok === true && Object.prototype.hasOwnProperty.call(r, 'value')) ? r.value : r
+      const remoteRaw = ctx.get('remote.bottomBar')
+      const remote = (remoteRaw !== null && remoteRaw !== undefined && typeof Proxy !== 'undefined')
+        ? new Proxy(remoteRaw, {
+            get(target, prop) {
+              const v = target[prop]
+              if (typeof v === 'function') return (...args) => Promise.resolve(v.apply(target, args)).then(unwrapRemote)
+              return v
+            },
+          })
+        : remoteRaw
+        try {
+          ctx.effect(() => ctx.locale.register('dsh-bottom-bar', {
+            zh: { input: '输入 {input} tok · 输出 {output} tok', cacheHit: '缓存命中 {tokens} tok' },
+            en: { input: 'Input {input} tok · Output {output} tok', cacheHit: 'Cache hit {tokens} tok' },
+          }), 'dsh-bottom-bar: dictionaries')
+        } catch (err) { console.error('dsh-bottom-bar: locale ns already registered (stale run); continuing', err) }
+        const t = ctx.locale.bind('conversation')
+        const tb = ctx.locale.bind('dsh-bottom-bar')
+        styles.insert(CLIENT_CSS)
         const usageOutputTokens = (usage) => {
           if (typeof usage !== 'object' || usage === null) return null
           const value = usage.outputTokens
@@ -2191,45 +2272,6 @@ body[data-ds-dark-theme] .dsh-mcell-in {
           }
           return { count: sel.length, decodeMs, outputTokens, inTokens, readTokens, writeTokens, ttftMs: ttftN > 0 ? ttftMs / ttftN : null }
         }
-        const formatTokens = (n) => {
-          const scaled = (v) => v >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10)
-          if (n < 1e3) return String(n)
-          if (n < 1e6) return scaled(n / 1e3) + 'K'
-          return scaled(n / 1e6) + 'M'
-        }
-        const formatDuration = (ms) => {
-          const s = ms / 1e3
-          if (s < 60) return Math.round(s * 10) / 10 + 's'
-          const whole = Math.round(s)
-          return Math.floor(whole / 60) + 'm' + whole % 60 + 's'
-        }
-        const formatTokensPerSecond = (tps) => {
-          const clamped = Math.max(0, tps)
-          return clamped >= 10 ? String(Math.round(clamped)) : String(Math.round(clamped * 10) / 10)
-        }
-        // 修订 142：上下文量压缩显示——1200000→1.2M、250000→250k、1536→1.5k
-        const formatCtx = (n) => {
-          if (!Number.isFinite(n)) return String(n)
-          if (n >= 1e6) return (Math.round(n / 1e6 * 10) / 10) + 'M'
-          if (n >= 1e3) {
-            const k = n / 1e3
-            return (k >= 100 ? String(Math.round(k)) : String(Math.round(k * 10) / 10)) + 'k'
-          }
-          return String(n)
-        }
-        const billedInputTokens = (usage) => (usage ? usage.uncachedInputTokens : 0) + (usage ? usage.cacheReadTokens : 0) + (usage ? usage.cacheWriteTokens : 0)
-        const cacheHitPercent = (usage) => {
-          const denominator = billedInputTokens(usage)
-          return denominator === 0 ? null : Math.round(usage.cacheReadTokens / denominator * 100)
-        }
-        const compactMoney = (v, currency, precision) => {
-          const prefix = currency === 'CNY' ? '¥' : '$'
-          if (precision === 'full') return prefix + (v === 0 ? '0.0000' : v.toFixed(4))
-          if (v === 0) return prefix + '0'
-          if (v >= 1) return prefix + v.toFixed(2)
-          if (v >= 0.01) return prefix + v.toFixed(2)
-          return prefix + v.toFixed(3)
-        }
         const costGroup = (estimate, precision, live) => {
           if (typeof estimate !== 'object' || estimate === null) return null
           if (!estimate.hasUsage) return null
@@ -2245,18 +2287,7 @@ body[data-ds-dark-theme] .dsh-mcell-in {
           if (estimate.peak !== undefined && estimate.peak.priced) text += estimate.peak.window === 'peak' ? ' · 高峰' : ' · 空闲'
           return text
         }
-        const SEGMENT_IDS = ['counts', 'llm', 'toolCall', 'ttft', 'throughput', 'cacheHit', 'tokens', 'cost', 'peak', 'balance']
-        const SEGMENT_LABELS = {
-          counts: '轮/步', llm: 'LLM 时长', toolCall: '工具调用时长', ttft: '首 token 平均',
-          throughput: '吞吐 tok/s', cacheHit: '缓存命中', tokens: '输入/输出 token', cost: '预估费用', peak: '峰谷时段', balance: 'DeepSeek 余额',
-        }
-        const PREVIEW_TEXTS = {
-          counts: '12 轮 · 45 步', llm: 'LLM 2m10s', toolCall: '工具调用时长 45s', ttft: '首 token 平均 1.8s', throughput: '34.2 tok/s',
-          cacheHit: { separate: '缓存命中 5.93M tok', combined: '缓存命中 97%' },
-          tokens: { separate: '输入 96.3K tok · 输出 72.8K tok', combined: '输入 6.0M tok · 输出 72.8K tok' },
-          cost: '预估 ¥0.36', peak: '⏱ 高峰 输入 ¥3.0/1M', balance: 'DeepSeek 余额 ¥18.20',
-        }
-        const DEFAULT_COMPOSITION = SEGMENT_IDS.map((id) => ({ id, enabled: true }))
+// 1.1.1 拆出:SEGMENT_IDS/SEGMENT_LABELS/PREVIEW_TEXTS/DEFAULT_COMPOSITION → lib/client-data.cjs
         let compositionValue = null
         const compositionListeners = new Set()
         const setCompositionState = (segments) => {
@@ -3419,7 +3450,6 @@ body[data-ds-dark-theme] .dsh-mcell-in {
             // 修订 183：费率卡展示用 alt(官方双币价,只读)
             const [editAlt, setEditAlt] = React.useState(null)
             const [editPeakOpen, setEditPeakOpen] = React.useState(false)
-            const r4x = (x) => Math.round(x * 1000) / 1000
             const openEdit = (model) => {
               const cur = Array.isArray(prices) ? prices.find((p) => p.model === model) : undefined
               if (cur === undefined) return
@@ -3539,43 +3569,7 @@ body[data-ds-dark-theme] .dsh-mcell-in {
             const TZ_OPTIONS = ['system', 'UTC']
             for (let tzi = 1; tzi <= 12; tzi++) TZ_OPTIONS.push('UTC+' + tzi)
             for (let tzi = 1; tzi <= 12; tzi++) TZ_OPTIONS.push('UTC-' + tzi)
-            // 修订 100：厂商比例模板只按 2026 年模型采样（旧系列不进下拉,
-            // auto 识别时内联兼容比例,见 computePreviewPrice）。
-            // 修订 143：比例四格 = 乘数(读/写/出 × 输入);修订 146：乘数按 A 读数
-            // (输出:读:写)还原——用户原始贴表,与 models.dev 官方数据对表一致;
-            // match=自动识别示例(2026 真实型号,来自 scripts/match-vendor-models.cjs)
-            const VENDOR_TEMPLATES = [
-              { id: 'auto', name: '⚡ 自动识别（默认）' },
-              { id: 'deepseek-v4', name: '🐳 DeepSeek V4', nick: 'DeepSeek V4', logo: 'deepseek', prefix: 'deepseek-', versions: ['v3.1', 'v3.2', 'v4-flash', 'v4-pro'], currency: 'USD', out: 3, read: 0.0318, write: 0, match: 'deepseek-v4-flash · deepseek-v4-pro' },
-              { id: 'claude', name: '⚡ Claude', nick: 'Claude', logo: 'anthropic', prefix: 'claude-', versions: ['sonnet-5', 'opus-5'], currency: 'USD', out: 5, read: 0.1, write: 1.25, match: 'claude-sonnet-5 · claude-opus-5' },
-              { id: 'openai-gpt5', name: '🧠 GPT-5.x', nick: 'GPT-5.x', logo: 'openai', prefix: 'gpt-', versions: ['5.5', '5.6-sol', '5.6-luna'], currency: 'USD', out: 6, read: 0.1, write: 1.25, match: 'gpt-5.6-sol · gpt-5.6-luna' },
-              { id: 'gemini', name: '🌐 Gemini 3', nick: 'Gemini 3', logo: 'google', prefix: 'gemini-', versions: ['3.7-flash'], currency: 'USD', out: 4, read: 0.25, write: 1, match: 'gemini-3.7-flash' },
-              { id: 'kimi', name: '🌙 Kimi K3', nick: 'Kimi K3', logo: 'moonshot', prefix: 'kimi-', versions: ['k3', 'k3-fast'], currency: 'CNY', out: 4, read: 0.2, write: 1, match: 'kimi-k3 · kimi-k3-fast' },
-              { id: 'qwen35', name: '🇨🇳 Qwen 3.5', nick: 'Qwen 3.5', logo: 'alibaba', prefix: 'qwen-', versions: ['3.5-plus', '3.5-omni-plus'], currency: 'CNY', out: 5, read: 0.1667, write: 1, match: 'qwen3.5-plus · qwen3.5-omni-plus' },
-              { id: 'glm', name: '📘 GLM 5', nick: 'GLM 5', logo: 'zhipu', prefix: 'glm-', versions: ['5.2', '5.3'], currency: 'CNY', out: 3.5, read: 0.2, write: 1, match: 'glm-5.2 · glm-5.3' },
-              { id: 'minimax', name: '🤖 MiniMax M3', nick: 'MiniMax M3', logo: 'minimax', prefix: 'minimax-', versions: ['m3', 'm3-preview'], currency: 'CNY', out: 4, read: 0.1, write: 1, match: 'minimax-m3 · minimax-m3-preview' },
-              { id: 'doubao', name: '⚡ 豆包 Seed 2', nick: '豆包 Seed 2', logo: 'volcengine', prefix: 'doubao-', versions: ['seed-2-1-turbo', 'seed-2.1-pro'], currency: 'CNY', out: 4, read: 0.1, write: 1, match: 'seed-2-1-turbo · doubao-seed-2.1-pro' },
-              { id: 'grok', name: '🪐 Grok 4', nick: 'Grok 4', logo: 'xai', prefix: 'grok-', versions: ['4.6'], currency: 'USD', out: 5, read: 0.1, write: 1, match: 'grok-4.6' },
-              { id: 'custom', name: '⚙️ 手动填写' },
-            ]
-            // 修订 144/146：比例四格编排顺序(可配置;默认 A = 输入:输出:缓存读:缓存写,
-            // 与用户数据/models.dev 官方一致;备选 B = 输入:缓存读:缓存写:输出)
-            const RATIO_ORDERS = [
-              { id: 'in-out-read-write', label: '输入:输出:缓存读:缓存写', head: '比例（输入:输出:缓存读:缓存写）' },
-              { id: 'in-read-write-out', label: '输入:缓存读:缓存写:输出', head: '比例（输入:缓存读:缓存写:输出）' },
-            ]
-            const ratioOrderObj = (o) => RATIO_ORDERS.find((r) => r.id === o) || RATIO_ORDERS[0]
-            // 按编排顺序产出四格 [标签, 值, 是否灰显];乘数换算与顺序无关
-            const ratioCellsOf = (o, t) => o === 'in-out-read-write'
-              ? [['输入', 1, false], ['输出', t.out, t.out === 0], ['缓存读', t.read, t.read === 0], ['缓存写', t.write, t.write === 0]]
-              : [['输入', 1, false], ['缓存读', t.read, t.read === 0], ['缓存写', t.write, t.write === 0], ['输出', t.out, t.out === 0]]
-            // 旧系列兼容比例（2025 及更早,不进下拉;auto 命中时内联使用,不写错价）
-            const LEGACY_TPLS = {
-              openaiClassic: { currency: 'USD', out: 4, read: 0.5, write: 1.0 },
-              deepseekV3: { currency: 'CNY', out: 4, read: 0.25, write: 1.0 },
-              qwenClassic: { currency: 'CNY', out: 3, read: 0.25, write: 1.0 },
-              generic: { currency: 'USD', out: 4, read: 0.25, write: 1.0 },
-            }
+// 1.1.1 拆出:VENDOR_TEMPLATES/RATIO_ORDERS/ratioOrderObj/ratioCellsOf/LEGACY_TPLS → lib/client-data.cjs
 
             const computePreviewPrice = () => {
               const inVal = Number(newIn)
@@ -3951,14 +3945,6 @@ body[data-ds-dark-theme] .dsh-mcell-in {
               .filter(Boolean)
               .join(' | ')
             const hasPreviewSegs = previewDockTitle !== ''
-            // 修订 167：单桶比例标注——每个输入框正下方小字显示该桶 ÷ 输入价
-            // (输入框下 1x,缓存读框下 0.02x …),改输入即同步
-            const cellRatio = (inV, v) => {
-              const inN = Number(inV)
-              if (!Number.isFinite(inN) || inN <= 0) return null
-              if (v === undefined || v === null || !Number.isFinite(Number(v))) return null
-              return (Math.round((Number(v) / inN) * 10000) / 10000) + 'x'
-            }
             const priceCell = (key, inputEl, ratioText, base) => React.createElement('span', { key, className: 'dsh-price-cell' },
               inputEl,
               React.createElement('span', { className: 'dsh-price-cell-ratio' + (base ? ' base' : '') }, ratioText === null || ratioText === undefined ? '' : ratioText),

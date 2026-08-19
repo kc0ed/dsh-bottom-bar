@@ -41,6 +41,18 @@ body = body.replace(/const inject = \[[^\]]*\]\n/, '')
 body = body.replace('function apply(ctx) {', 'apply(ctx) {')
 body = body.replace(/^.*const remote = ctx\.remote\.bottomBar.*\n/gm, '')
 
+// 2.5) 内联本地模块(1.1.1 拆出):require('./client-*.cjs') → 把文件内容剥掉
+// module.exports 与注释后整段替换进来;动态插件必须单文件自包含
+body = body.replace(/const \{ ([^}]+) \} = require\('\.\/client-([a-z-]+)\.cjs'\)/g, (m, names, mod) => {
+  const rel = require('node:path').resolve(__dirname, '..', 'lib', 'client-' + mod + '.cjs')
+  let out = fs.readFileSync(rel, 'utf8')
+  out = out.replace(/^\/\/═══.*$/gm, '')          // 顶部分隔注释
+  out = out.replace(/\/\/ .*$/gm, '')             // 普通注释
+  out = out.replace(/module\.exports\s*=\s*\{[^}]*\}\s*\n?/, '')
+  out = out.replace(/^\s*$/gm, '')
+  return '\n/* [inlined lib/client-' + mod + '.cjs] */\n' + out.trim() + '\n'
+})
+
 // 3) RPC 调用点：remote.<method>(args) → host.call('<wire>', args)
 const WIRES = {
   getConfig: 'get-composition',
