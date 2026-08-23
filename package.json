@@ -1,7 +1,7 @@
 {
   "name": "@kc0ed/dsh-bottom-bar",
-  "version": "1.1.1",
-  "description": "底栏统计设置：可组装的输入框下方统计行 + 预估费用（含 DeepSeek 峰谷定价）+ 自研持久化账本（客户端全量对账）+ 设置页（底栏）。",
+  "version": "1.2.0",
+  "description": "底栏统计设置：可组装的输入框下方统计行 + 预估费用（DeepSeek 峰谷分时计费·双桶账本·周末计费时代切换）+ 自研持久化账本（客户端全量对账）+ 设置页（底栏）。",
   "type": "module",
   "main": "lib/index.js",
   "scripts": {

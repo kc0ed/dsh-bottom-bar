@@ -2048,7 +2048,7 @@ const SEGMENT_IDS = ['counts', 'llm', 'toolCall', 'ttft', 'throughput', 'cacheHi
 
             const VENDOR_TEMPLATES = [
               { id: 'auto', name: '⚡ 自动识别（默认）' },
-              { id: 'deepseek-v4', name: '🐳 DeepSeek V4', nick: 'DeepSeek V4', logo: 'deepseek', prefix: 'deepseek-', versions: ['v3.1', 'v3.2', 'v4-flash', 'v4-pro'], currency: 'USD', out: 3, read: 0.0318, write: 0, match: 'deepseek-v4-flash · deepseek-v4-pro' },
+              { id: 'deepseek-v4', name: '🐳 DeepSeek V4', nick: 'DeepSeek V4', logo: 'deepseek', prefix: 'deepseek-', versions: ['v3.1', 'v3.2', 'v4-flash', 'v4-pro', 'v4-flash-vision-exp'], currency: 'USD', out: 3, read: 0.0318, write: 0, match: 'deepseek-v4-flash · deepseek-v4-pro · v4-flash-vision-exp' },
               { id: 'claude', name: '⚡ Claude', nick: 'Claude', logo: 'anthropic', prefix: 'claude-', versions: ['sonnet-5', 'opus-5'], currency: 'USD', out: 5, read: 0.1, write: 1.25, match: 'claude-sonnet-5 · claude-opus-5' },
               { id: 'openai-gpt5', name: '🧠 GPT-5.x', nick: 'GPT-5.x', logo: 'openai', prefix: 'gpt-', versions: ['5.5', '5.6-sol', '5.6-luna'], currency: 'USD', out: 6, read: 0.1, write: 1.25, match: 'gpt-5.6-sol · gpt-5.6-luna' },
               { id: 'gemini', name: '🌐 Gemini 3', nick: 'Gemini 3', logo: 'google', prefix: 'gemini-', versions: ['3.7-flash'], currency: 'USD', out: 4, read: 0.25, write: 1, match: 'gemini-3.7-flash' },
@@ -2283,8 +2283,10 @@ const balInfosOf = (b) => (b !== null && b !== undefined && Array.isArray(b.info
           for (const key of Object.keys(totals)) parts.push(compactMoney(totals[key], key, precision))
           let text = '预估 ' + (parts.length > 0 ? parts.join(' + ') : '—')
           if (estimate.unpriced.length > 0) text += ' (+' + estimate.unpriced.length + ' 无价)'
-          // 修订 75/79：峰谷计价开启且实际套用高峰价时,费用段标注当前时段
-          if (estimate.peak !== undefined && estimate.peak.priced) text += estimate.peak.window === 'peak' ? ' · 高峰' : ' · 空闲'
+          // 修订 190：分时计费——总额不再随查看时刻翻转,标注费用加权峰占比
+          if (typeof estimate.peakShare === 'number' && estimate.peakShare > 0.001) {
+            text += estimate.peakShare >= 0.999 ? ' · 全峰' : ' · 峰' + Math.round(estimate.peakShare * 100) + '%'
+          }
           return text
         }
 // 1.1.1 拆出:SEGMENT_IDS/SEGMENT_LABELS/PREVIEW_TEXTS/DEFAULT_COMPOSITION → lib/client-data.cjs
