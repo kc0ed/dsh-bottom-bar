@@ -3856,13 +3856,11 @@ const balInfosOf = (b) => (b !== null && b !== undefined && Array.isArray(b.info
                 ctx.fillText(costText, w - pad, y)
                 ctx.fillStyle = textSub
                 ctx.font = 'normal 11px ' + mono
-                ctx.fillText(formatTokens(r.tokens) + ' tok', w - pad - 108, y)
+                ctx.fillText(formatTokens(r.freshTokens !== undefined ? r.freshTokens : r.tokens) + ' tok', w - pad - 108, y)
                 ctx.textAlign = 'left'
-                // 次行:各桶消耗明细(仅非零桶)
+                // 次行:新增口径(去复读)——未缓存输入 + 输出;复读是继承前文的重复命中,不再展示
                 const buckets = []
                 if (r.uncachedInput > 0) buckets.push('输入 ' + formatTokens(r.uncachedInput))
-                if (r.cacheRead > 0) buckets.push('缓存读 ' + formatTokens(r.cacheRead))
-                if (r.cacheWrite > 0) buckets.push('缓存写 ' + formatTokens(r.cacheWrite))
                 if (r.output > 0) buckets.push('输出 ' + formatTokens(r.output))
                 ctx.fillStyle = textSub
                 ctx.font = 'normal 11px sans-serif'
@@ -4244,7 +4242,8 @@ const balInfosOf = (b) => (b !== null && b !== undefined && Array.isArray(b.info
                 usedUnconfigured.length > 0 && React.createElement('div', { className: 'dsh-price-group', key: 'g-used' }, '用过的模型 · 未配置价格'),
                 usedUnconfigured.map((u) => React.createElement('div', { className: 'dsh-price-row', key: 'u' + u.key },
                   React.createElement('span', { className: 'dsh-price-model', title: u.key }, u.key),
-                  React.createElement('span', { style: { flex: 'none', fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, formatTokens(u.tokens) + ' tok'),
+                  // 新增口径(去复读)
+                  React.createElement('span', { style: { flex: 'none', fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } }, formatTokens((u.uncachedInput || 0) + (u.output || 0)) + ' tok'),
                   React.createElement('button', { className: 'dsh-comp-btn', style: { flex: 'none' }, title: '按官方价一键配置该渠道价格', onClick: () => configureUsed(u.key) }, '按官方价配置'),
                 )),
                 builtinPriceRows.length > 0 && React.createElement('button', { className: 'dsh-price-toggle', onClick: () => setBuiltinOpen(!builtinOpen) },
@@ -4489,27 +4488,21 @@ const balInfosOf = (b) => (b !== null && b !== undefined && Array.isArray(b.info
                   : React.createElement(React.Fragment, null,
                     React.createElement('div', { style: fullGrid },
                       React.createElement('div', { style: fullCell },
-                        React.createElement('span', null, '未缓存输入'),
+                        React.createElement('span', null, '新增输入'),
                         React.createElement('span', { style: fullValue }, formatTokens(fullAll.tokens.uncachedInput), React.createElement('small', { style: fullTok }, ' tok')),
                       ),
                       React.createElement('div', { style: fullCell },
-                        React.createElement('span', null, '缓存读'),
-                        React.createElement('span', { style: fullValue }, formatTokens(fullAll.tokens.cacheRead), React.createElement('small', { style: fullTok }, ' tok')),
-                      ),
-                      React.createElement('div', { style: fullCell },
-                        React.createElement('span', null, '缓存写'),
-                        React.createElement('span', { style: fullValue }, formatTokens(fullAll.tokens.cacheWrite), React.createElement('small', { style: fullTok }, ' tok')),
-                      ),
-                      React.createElement('div', { style: fullCell },
-                        React.createElement('span', null, '输出'),
+                        React.createElement('span', null, '新增输出'),
                         React.createElement('span', { style: fullValue }, formatTokens(fullAll.tokens.output), React.createElement('small', { style: fullTok }, ' tok')),
                       ),
                     ),
+                    React.createElement('div', { style: { fontSize: 10, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' } }, '新增口径(去复读):缓存命中/写是继承前文的重复命中,不计入'),
                     React.createElement('div', { style: fullDivider }),
                     fullAll.rows.length > 0 && fullAll.rows.map((r) => React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 } },
                       React.createElement('span', { style: { fontWeight: 500, color: 'var(--dsw-alias-label-primary)', whiteSpace: 'nowrap' }, title: r.key }, r.key),
                       React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' } },
-                        React.createElement('small', { style: fullTok }, formatTokens(r.tokens) + ' tok'),
+                        // 新增口径(去复读)
+                        React.createElement('small', { style: fullTok }, formatTokens(r.freshTokens !== undefined ? r.freshTokens : r.tokens) + ' tok'),
                         React.createElement('span', { style: r.free ? { color: '#10b981', fontWeight: 600 } : { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' } },
                           r.free ? ('免费 · 省 ' + (r.refCost !== null && r.refCost !== undefined ? compactMoney(r.refCost, r.refCurrency, 'compact') : '')) : compactMoney(r.cost, r.currency, 'compact'),
                         ),
